@@ -44,10 +44,47 @@ services:
     networks:
       - cognitive-rag-network
 
+  # Elasticsearch for sparse text/data storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    container_name: ${ELASTICSEARCH_CONTAINER_NAME:-cognitive-rag-elasticsearch}
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=${ES_JAVA_OPTS:--Xms512m -Xmx512m}"
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cognitive-rag-network
+
+  # ElasticVue - Elasticsearch Web UI
+  elasticvue:
+    image: cars10/elasticvue:latest
+    container_name: ${ELASTICVUE_CONTAINER_NAME:-cognitive-rag-elasticvue}
+    ports:
+      - "${ELASTICVUE_PORT:-8088}:8080"
+    environment:
+      - ELASTICVUE_ELASTICSEARCH_HOST=http://elasticsearch:9200
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    networks:
+      - cognitive-rag-network
+
 volumes:
   postgres_data:
     driver: local
   minio_data:
+    driver: local
+  elasticsearch_data:
     driver: local
 
 networks:
