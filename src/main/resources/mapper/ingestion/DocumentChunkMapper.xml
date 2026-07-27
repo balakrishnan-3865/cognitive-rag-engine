@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.ingestion.mapper.DocumentChunkMapper">
+    <insert id="insert" parameterType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO document_chunks (
+            group_id,
+            document_id,
+            chunk_number,
+            chunk_text,
+            metadata_json,
+            start_position,
+            end_position,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{groupId},
+            #{documentId},
+            #{chunkNumber},
+            #{chunkText},
+            #{metadataJson},
+            #{startPosition},
+            #{endPosition},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <insert id="batchInsert" parameterType="list">
+        INSERT INTO document_chunks (
+            group_id,
+            document_id,
+            chunk_number,
+            chunk_text,
+            metadata_json,
+            start_position,
+            end_position,
+            created_at,
+            updated_at
+        ) VALUES
+        <foreach collection="list" item="chunk" separator=",">
+            (
+                #{chunk.groupId},
+                #{chunk.documentId},
+                #{chunk.chunkNumber},
+                #{chunk.chunkText},
+                #{chunk.metadataJson},
+                #{chunk.startPosition},
+                #{chunk.endPosition},
+                #{chunk.createdAt},
+                #{chunk.updatedAt}
+            )
+        </foreach>
+    </insert>
+
+    <delete id="deleteByDocumentId" parameterType="long">
+        DELETE FROM document_chunks
+        WHERE document_id = #{documentId}
+    </delete>
+
+    <select id="selectByDocumentId" resultType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity">
+        SELECT
+            id,
+            group_id,
+            document_id,
+            chunk_number,
+            chunk_text,
+            metadata_json,
+            start_position,
+            end_position,
+            created_at,
+            updated_at
+        FROM document_chunks
+        WHERE document_id = #{documentId}
+        AND group_id = #{groupId}
+        ORDER BY chunk_number ASC, id ASC
+    </select>
+
+</mapper>

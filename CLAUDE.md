@@ -3,6 +3,7 @@
 ## 1. Project Overview & Stack
 - **Domain:** Retrieval Augmented Generation (RAG) system in foundational stages.
 - **Framework**: Spring Boot 3.5.0
+- **Database Access: MyBatis** (NOT JPA/Hibernate)
 - **Build Tool**: Maven 3.9+ (with wrapper mvnw/mvnw.cmd)
 - **Language**: Java 17
 - **Package**: `com.skyshift.cognitiveragengine`
@@ -69,30 +70,25 @@ cognitive_rag_engine
 * **Lombok:** Use Lombok annotations (`@Data`,`@Getter`, `@Setter`, `@Slf4j`) to eliminate boilerplate on standard classes.
 * **Functional Programming:** Prefer Streams, `Optional`, and functional patterns over imperative loops where appropriate.
 
-## 5. Active Stage 1: Project Initialization & Infrastructure Layer (Current Focus)
-- **Goal:** Clean Spring Boot 3 architecture + containerized data dependencies
-- **Scope Limits:** Strictly no vector stores, no RAG pipelines, and no multi-turn state management in this phase.
-- **Milestones:**
-    - [ ] Add dependencies: Spring AI RAG, Spring Web, MyBatis Spring Boot, PostgreSQL, MiniO, Flyway, Spring AI Alibaba agent framework and Lombok.
-    - [ ] Package structure exists with empty placeholder classes.
-    - [ ] Create multi-tier package structure.
-    - [ ] Write a docker-compose.yml defining PostgreSQL with pgvector and MinIO object storage.
-    - [ ] Configure `application.yaml` with required environment variables. db connection profile, bucket details, and LLM API keys.
+### 4. Use MyBatis conventions in Batabase (Not Spring Data JPA)
+* XML mappings in `src/main/resources/mapper/`
+* This means no JPA entities, `@Entity` annotations, `JpaRepository` interfaces.
+* Only use MyBatis mappers with SQL in XML.
 
-## 6. Structural RAG Guardrails
+## 5. Structural RAG Guardrails
 - **Spring AI First:** Maximize native Spring AI abstractions (ChatModel, VectorStore, EmbeddingModel). Do not write raw REST/HTTP clients for LLM APIs.
 - **Configuration:** Maintain all application flags inside `src/main/resources/application.yaml`. Do not hardcode properties.
 - **Immutable Data:** Use Java `record` types for DTOs, API request envelopes, and context payloads.
 - **Validation-First:** Write integration tests alongside new endpoints or embedding pipelines using Spring Boot's internal test tools.
 
-## 7. Think Before Coding
+## 6. Think Before Coding
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them—don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
-## 8. Simplicity First
+## 7. Simplicity First
 **Minimum code that solves the problem. Nothing speculative.**
 - No features beyond what was asked. No abstractions for single-use code.
 - No "flexibility" or "configurability" that wasn't requested.
@@ -100,14 +96,14 @@ cognitive_rag_engine
 - If you write 200 lines and it could be 50, rewrite it.
 - Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-## 9. Surgical Changes
+## 8. Surgical Changes
 **Touch only what you must. Clean up only your own mess.**
 - Don't "improve" adjacent code, comments, or formatting. Don't refactor things that aren't broken.
 - Match existing style exactly, even if you would do it differently.
 - Remove imports, variables, or functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked. Every changed line must trace directly to the request.
 
-## 10. Goal-Driven Execution
+## 9. Goal-Driven Execution
 **Define success criteria. Loop until verified.**
 - Transform tasks into verifiable goals (e.g., "Fix the bug" → "Write a test that reproduces it, then make it pass").
 - For multi-step tasks, state a brief plan up front:
@@ -116,3 +112,11 @@ cognitive_rag_engine
   2. [Step] → verify: [check]
   ```
 - Use strong success criteria to loop independently. Do not work off weak criteria like "make it work".
+
+## 10. Entity Generation Pattern
+For new entities:
+1. Design-first prompt (fields, relationships, indexing)
+2. 2-3 iteration rounds
+3. Generate: Entity + Flyway V[N] + MyBatis Mapper interface + XML
+4. /review + test
+5. /compact focus on [new entity]

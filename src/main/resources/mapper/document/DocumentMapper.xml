@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.document.mapper.DocumentMapper">
+
+    <insert id="insert" parameterType="com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO documents (
+            group_id,
+            uploaded_user_id,
+            file_name,
+            file_extension,
+            context_type,
+            file_size,
+            file_hash,
+            storage_bucket,
+            storage_object_key,
+            status,
+            deleted,
+            failure_reason,
+            uploaded_at,
+            processed_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{groupId},
+            #{uploadedUserId},
+            #{fileName},
+            #{fileExtension},
+            #{contextType},
+            #{fileSize},
+            #{fileHash},
+            #{storageBucket},
+            #{storageObjectKey},
+            #{status},
+            #{deleted},
+            #{failureReason},
+            #{uploadedAt},
+            #{processedAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="selectByIdAndGroupId" resultType="com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity">
+        SELECT
+            id,
+            group_id,
+            uploaded_user_id,
+            file_name,
+            file_extension,
+            context_type,
+            file_size,
+            file_hash,
+            storage_bucket,
+            storage_object_key,
+            status,
+            deleted,
+            failure_reason,
+            uploaded_at,
+            processed_at,
+            created_at,
+            updated_at
+        FROM documents
+        where id = #{documentId}
+        and group_id = #{groupId}
+        and deleted = false
+    </select>
+</mapper>
