@@ -6,19 +6,6 @@ spring:
       max-file-size: 20MB
       max-request-size: 20MB
 
-  # Async Task Execution Configuration
-  task:
-    execution:
-      pool:
-        # Core pool size for async task execution
-        core-size: 5
-        # Maximum pool size for async task execution
-        max-size: 10
-        # Queue capacity for pending async tasks
-        queue-capacity: 100
-      # Thread name prefix for identification
-      thread-name-prefix: cognitive-rag-async-
-
   # PostgreSQL DataSource Configuration
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cognitive_rag_engine}
@@ -61,8 +48,18 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-# Document Upload Configuration
+# Document Ingestion Configuration (Phase 2.2)
 document:
+  ingestion:
+    chunk-size-tokens: ${DOCUMENT_INGESTION_CHUNK_SIZE_TOKENS:300}
+    chunk-overlap-percentage: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_PERCENTAGE:20}
+    embedding-batch-size: ${DOCUMENT_INGESTION_EMBEDDING_BATCH_SIZE:50}
+    elasticsearch-batch-size: ${DOCUMENT_INGESTION_ELASTICSEARCH_BATCH_SIZE:100}
+    max-retries: ${DOCUMENT_INGESTION_MAX_RETRIES:3}
+    initial-retry-delay-ms: ${DOCUMENT_INGESTION_INITIAL_RETRY_DELAY_MS:1000}
+    retry-backoff-multiplier: ${DOCUMENT_INGESTION_RETRY_BACKOFF_MULTIPLIER:2.0}
+
+  # Document Upload Configuration
   upload:
     # Maximum file size in bytes (50 MB)
     # Environment variable: DOCUMENT_UPLOAD_MAX_FILE_SIZE
@@ -89,10 +86,19 @@ storage:
     bucket: ${MINIO_BUCKET_NAME:cognitive-rag-engine}
 
 # Logging Configuration
+#logging:
+#  level:
+#    root: INFO
+#    com.skyshift.cognitiveragengine: DEBUG
+#    org.springframework.ai: DEBUG
+#  pattern:
+#    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+
 logging:
   level:
-    root: INFO
+    org.springframework.transaction: DEBUG
+    org.springframework.context.event: DEBUG
+    org.springframework.scheduling: DEBUG
     com.skyshift.cognitiveragengine: DEBUG
     org.springframework.ai: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

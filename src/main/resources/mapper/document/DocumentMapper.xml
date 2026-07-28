@@ -65,4 +65,40 @@
         and group_id = #{groupId}
         and deleted = false
     </select>
+
+    <select id="selectById" resultType="com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity">
+        SELECT
+            id,
+            group_id,
+            uploaded_user_id,
+            file_name,
+            file_extension,
+            context_type,
+            file_size,
+            file_hash,
+            storage_bucket,
+            storage_object_key,
+            status,
+            deleted,
+            failure_reason,
+            uploaded_at,
+            processed_at,
+            created_at,
+            updated_at
+        FROM documents
+        WHERE id = #{documentId}
+        AND deleted = false
+    </select>
+
+    <update id="updateStatus">
+        UPDATE documents
+        SET status = #{status}, updated_at = NOW()
+        WHERE id = #{documentId}
+    </update>
+
+    <update id="updateStatusAndReason">
+        UPDATE documents
+        SET status = #{status}, failure_reason = #{failureReason}, updated_at = NOW()
+        WHERE id = #{documentId}
+    </update>
 </mapper>

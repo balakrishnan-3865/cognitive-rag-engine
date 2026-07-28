@@ -11,6 +11,7 @@ import com.skyshift.cognitiveragengine.storage.service.ObjectStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -39,6 +40,7 @@ public class DocumentService {
         this.eventPublisher = eventPublisher;
     }
 
+    @Transactional
     public Long uploadDocument(
         MultipartFile file,
         Long groupId,
@@ -95,6 +97,7 @@ public class DocumentService {
             );
         }
     }
+
 
     private Long createAndPersistDocument(
         String normalizedFilename,

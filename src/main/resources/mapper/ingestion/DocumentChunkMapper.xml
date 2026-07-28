@@ -18,7 +18,7 @@
             #{documentId},
             #{chunkNumber},
             #{chunkText},
-            #{metadataJson},
+            cast(#{metadataJson} as jsonb),
             #{startPosition},
             #{endPosition},
             #{createdAt},
@@ -44,9 +44,32 @@
                 #{chunk.documentId},
                 #{chunk.chunkNumber},
                 #{chunk.chunkText},
-                #{chunk.metadataJson},
+                cast(#{chunk.metadataJson} as jsonb),
                 #{chunk.startPosition},
                 #{chunk.endPosition},
+                #{chunk.createdAt},
+                #{chunk.updatedAt}
+            )
+        </foreach>
+    </insert>
+
+    <insert id="batchInsertChunks" parameterType="list">
+        INSERT INTO document_chunks (
+            group_id,
+            document_id,
+            chunk_number,
+            chunk_text,
+            metadata_json,
+            created_at,
+            updated_at
+        ) VALUES
+        <foreach collection="chunks" item="chunk" separator=",">
+            (
+                #{chunk.groupId},
+                #{chunk.documentId},
+                #{chunk.chunkNumber},
+                #{chunk.chunkText},
+                cast(#{chunk.metadataJson} as jsonb),
                 #{chunk.createdAt},
                 #{chunk.updatedAt}
             )
@@ -56,6 +79,12 @@
     <delete id="deleteByDocumentId" parameterType="long">
         DELETE FROM document_chunks
         WHERE document_id = #{documentId}
+    </delete>
+
+    <delete id="deleteByDocumentIdAndGroupId">
+        DELETE FROM document_chunks
+        WHERE document_id = #{documentId}
+        AND group_id = #{groupId}
     </delete>
 
     <select id="selectByDocumentId" resultType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity">
@@ -74,6 +103,39 @@
         WHERE document_id = #{documentId}
         AND group_id = #{groupId}
         ORDER BY chunk_number ASC, id ASC
+    </select>
+
+    <select id="selectByDocumentIdAndGroupId" resultType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity">
+        SELECT
+            id,
+            group_id,
+            document_id,
+            chunk_number,
+            chunk_text,
+            metadata_json,
+            created_at,
+            updated_at
+        FROM document_chunks
+        WHERE document_id = #{documentId}
+        AND group_id = #{groupId}
+        ORDER BY chunk_number ASC, id ASC
+    </select>
+
+    <select id="selectByDocumentIdAndGroupIdWithPagination" resultType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity">
+        SELECT
+            id,
+            group_id,
+            document_id,
+            chunk_number,
+            chunk_text,
+            metadata_json,
+            created_at,
+            updated_at
+        FROM document_chunks
+        WHERE document_id = #{documentId}
+        AND group_id = #{groupId}
+        ORDER BY chunk_number ASC, id ASC
+        LIMIT #{limit} OFFSET #{offset}
     </select>
 
 </mapper>

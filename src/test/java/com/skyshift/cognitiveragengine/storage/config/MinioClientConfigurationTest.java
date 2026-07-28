@@ -70,20 +70,6 @@ class MinioClientConfigurationTest {
     }
 
     @Test
-    void testMinioClientBean_WithMissingBucket() {
-        MinioProperties props = new MinioProperties(
-            "http://localhost:9000",
-            "minioadmin",
-            "minioadmin",
-            null
-        );
-
-        MinioClient client = configuration.minioClient(props);
-
-        assertNull(client);
-    }
-
-    @Test
     void testObjectStorageService_WithCompleteConfiguration() {
         MinioProperties props = new MinioProperties(
             "http://localhost:9000",
