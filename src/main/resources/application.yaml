@@ -2,6 +2,19 @@ spring:
   application:
     name: cognitive-rag-engine
 
+  # Async Task Execution Configuration
+  task:
+    execution:
+      pool:
+        # Core pool size for async task execution
+        core-size: 5
+        # Maximum pool size for async task execution
+        max-size: 10
+        # Queue capacity for pending async tasks
+        queue-capacity: 100
+      # Thread name prefix for identification
+      thread-name-prefix: cognitive-rag-async-
+
   # PostgreSQL DataSource Configuration
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cognitive_rag_engine}
