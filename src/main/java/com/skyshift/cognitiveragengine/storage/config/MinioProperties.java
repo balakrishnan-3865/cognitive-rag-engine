@@ -9,10 +9,15 @@ public record MinioProperties(
     String secretKey,
     String bucket
 ) {
+    public static final String DEFAULT_BUCKET = "cognitive-rag-engine";
+
     public boolean isConfigured() {
         return endpoint != null && !endpoint.isBlank()
             && accessKey != null && !accessKey.isBlank()
-            && secretKey != null && !secretKey.isBlank()
-            && bucket != null && !bucket.isBlank();
+            && secretKey != null && !secretKey.isBlank();
+    }
+
+    public String getEffectiveBucket() {
+        return (bucket != null && !bucket.isBlank()) ? bucket : DEFAULT_BUCKET;
     }
 }

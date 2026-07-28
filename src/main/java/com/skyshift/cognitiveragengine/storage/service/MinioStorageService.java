@@ -24,12 +24,18 @@ public class MinioStorageService implements ObjectStorageService {
 
     private final MinioClient minioClient;
     private final String defaultBucket;
+    private final Object bucketLock = new Object();
     private final Set<String> bucketInitialized =
         Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public MinioStorageService(MinioClient minioClient, String defaultBucket) {
         this.minioClient = minioClient;
         this.defaultBucket = defaultBucket;
+    }
+
+    @Override
+    public String getDefaultBucket() {
+        return defaultBucket;
     }
 
     @Override
@@ -143,8 +149,8 @@ public class MinioStorageService implements ObjectStorageService {
             return;
         }
 
-        // Synchronize per bucket using interned string
-        synchronized (bucketName.intern()) {
+        // Synchronized block
+        synchronized (bucketLock) {
             // Double-check pattern after acquiring lock
             if (bucketInitialized.contains(bucketName)) {
                 return;

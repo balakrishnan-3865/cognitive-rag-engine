@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.storage.service;
 
 import com.skyshift.cognitiveragengine.common.exception.StorageException;
+import com.skyshift.cognitiveragengine.storage.config.MinioProperties;
 
 import java.io.InputStream;
 import java.util.List;
@@ -8,6 +9,17 @@ import java.util.List;
 public class NoOpStorageService implements ObjectStorageService {
 
     private static final String MINIO_NOT_CONFIGURED = "MinIO storage is not configured. ";
+
+    private final String defaultBucket;
+
+    public NoOpStorageService(MinioProperties props) {
+        this.defaultBucket = props.getEffectiveBucket();
+    }
+
+    @Override
+    public String getDefaultBucket() {
+        return defaultBucket;
+    }
 
     @Override
     public void uploadObject(String bucketName, String key, InputStream content, long size) {

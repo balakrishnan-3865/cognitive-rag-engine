@@ -5,6 +5,8 @@ import java.util.List;
 
 public interface ObjectStorageService {
 
+    String getDefaultBucket();
+
     void uploadObject(String bucketName, String key, InputStream content, long size);
 
     InputStream downloadObject(String bucketName, String key);

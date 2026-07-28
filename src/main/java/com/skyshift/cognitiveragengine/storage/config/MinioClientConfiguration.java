@@ -18,7 +18,7 @@ public class MinioClientConfiguration {
     @Bean
     public MinioClient minioClient(MinioProperties props) {
         if (!props.isConfigured()) {
-            log.warn("MinIO configuration incomplete or missing. Storage operations will be no-ops.");
+            log.error("MinIO configuration incomplete or missing. Storage operations will be no-ops.");
             return null;
         }
         try {
@@ -40,11 +40,12 @@ public class MinioClientConfiguration {
             @Nullable MinioClient minioClient) {
 
         if (!props.isConfigured() || minioClient == null) {
-            log.info("Using NoOp object storage service. MinIO is not configured.");
-            return new NoOpStorageService();
+            log.warn("Using NoOp object storage service. MinIO is not configured. Default bucket: {}",
+                props.getEffectiveBucket());
+            return new NoOpStorageService(props);
         }
 
-        log.info("Using MinIO object storage service with bucket: {}", props.bucket());
-        return new MinioStorageService(minioClient, props.bucket());
+        log.info("Using MinIO object storage service with bucket: {}", props.getEffectiveBucket());
+        return new MinioStorageService(minioClient, props.getEffectiveBucket());
     }
 }
