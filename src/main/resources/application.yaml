@@ -44,6 +44,25 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+# Document Upload Configuration
+document:
+  upload:
+    # Maximum file size in bytes (50 MB)
+    # Environment variable: DOCUMENT_UPLOAD_MAX_FILE_SIZE
+    max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:52428800}
+
+    # Maximum filename length (excluding extension)
+    # Environment variable: DOCUMENT_UPLOAD_MAX_FILENAME_LENGTH
+    max-filename-length: ${DOCUMENT_UPLOAD_MAX_FILENAME_LENGTH:255}
+
+    # Maximum file extension length
+    # Environment variable: DOCUMENT_UPLOAD_MAX_EXTENSION_LENGTH
+    max-extension-length: ${DOCUMENT_UPLOAD_MAX_EXTENSION_LENGTH:10}
+
+    # Supported file extensions (case-insensitive, comma-separated)
+    # Environment variable: DOCUMENT_UPLOAD_SUPPORTED_EXTENSIONS
+    supported-extensions: ${DOCUMENT_UPLOAD_SUPPORTED_EXTENSIONS:pdf}
+
 # MinIO Object Storage Configuration
 storage:
   minio:
