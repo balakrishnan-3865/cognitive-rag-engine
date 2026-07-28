@@ -42,6 +42,7 @@ spring:
         distance-type: COSINE_DISTANCE     # Options: COSINE, EUCLIDEAN, INNER_PRODUCT
         index-type: HNSW          # Options: HNSW, IVFFLAT
         initialize-schema: true   # Auto-creates vector_store table on startup
+        max-document-batch-size: ${VECTORSTORE_BATCH_SIZE:100}  # Batch size for vector ingestion
 
   # Flyway Database Migration
   flyway:
