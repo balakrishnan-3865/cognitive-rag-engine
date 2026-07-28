@@ -1,6 +1,10 @@
 spring:
   application:
     name: cognitive-rag-engine
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
 
   # Async Task Execution Configuration
   task:

@@ -177,6 +177,16 @@ minio-bucket/
 
 ## Commit History
 
+- **Stage 02.1** — Document upload to MinIO with metadata persistence and async ingestion
+  - Implemented DocumentController with multipart file upload endpoint
+  - Created DocumentService with compensating transactions
+  - Added FileValidator with path traversal prevention
+  - Implemented DocumentIngestionAsyncListener with @Async @TransactionalEventListener
+  - Configured thread pool for async document ingestion processing
+  - Added comprehensive file validation and error handling
+  
+- `085a8ae` — Add default MinIO bucket and getDefaultBucket
+- `3d457f1` — Add MinIO object storage & NoOp fallback
+- `980cb0b` — Add document entities, mappers, migrations, docs
 - `fb25d3f` — Add Elasticsearch and ElasticVue services
 - `d117bed` — Initialize Spring Boot 3 RAG project infrastructure
-- `621f335` — Initial commit. Setting up the Spring Boot application.
