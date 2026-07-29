@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: cognitive-rag-engine-test
+
+  # Autoconfiguration exclusions for test environment
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.ollama.OllamaAutoConfiguration
+
+  # PostgreSQL DataSource Configuration (Test)
+  # Using port 5433 from docker-compose-test.yml to avoid conflicts
+  datasource:
+    url: jdbc:postgresql://localhost:5433/cognitive_rag_engine_test
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+
+  # Elasticsearch Configuration (Test)
+  # Using port 9201 from docker-compose-test.yml with test credentials
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URI:http://localhost:9201}
+    username: ${ELASTICSEARCH_USERNAME:elastic}
+    password: ${ELASTICSEARCH_PASSWORD:testpassword}
+
+  # Spring AI - Ollama Configuration (Test)
+  # Using local Ollama instance on default port 11434
+  ai:
+    model:
+      chat: ollama
+      embedding: ollama
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: deepseek-r1
+      embedding:
+        options:
+          model: nomic-embed-text
+          truncate: true
+
+  # Flyway Database Migration
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # Disable lazy initialization check to prevent Ollama validation at startup
+  lazy-initialization: false
+
+  # Enable autoconfiguration debugging for troubleshooting
+  main:
+    lazy-initialization: false
+
+# Document Ingestion Configuration (Test)
+document:
+  ingestion:
+    chunk-size-tokens: 300
+    chunk-overlap-percentage: 20
+    embedding-batch-size: 10
+    elasticsearch-batch-size: 50
+    max-retries: 2
+    initial-retry-delay-ms: 500
+    retry-backoff-multiplier: 2.0
+
+# Logging Configuration (Test)
+logging:
+  level:
+    root: WARN
+    com.skyshift.cognitiveragengine: DEBUG
+    org.springframework.test: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

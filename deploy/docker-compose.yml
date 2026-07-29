@@ -46,11 +46,12 @@ services:
 
   # Elasticsearch for sparse text/data storage
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: ${ELASTICSEARCH_CONTAINER_NAME:-cognitive-rag-elasticsearch}
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTICSEARCH_PASSWORD:-changeme}
       - "ES_JAVA_OPTS=${ES_JAVA_OPTS:--Xms512m -Xmx512m}"
     ports:
       - "${ELASTICSEARCH_PORT:-9200}:9200"
@@ -58,7 +59,7 @@ services:
       - elasticsearch_data:/usr/share/elasticsearch/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"'"]
+      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTICSEARCH_PASSWORD:-changeme} http://localhost:9200/_cluster/health | grep -q '\"status\":\"'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -73,6 +74,8 @@ services:
       - "${ELASTICVUE_PORT:-8088}:8080"
     environment:
       - ELASTICVUE_ELASTICSEARCH_HOST=http://elasticsearch:9200
+      - ELASTICVUE_ELASTICSEARCH_USERNAME=elastic
+      - ELASTICVUE_ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD:-changeme}
     restart: unless-stopped
     depends_on:
       - elasticsearch

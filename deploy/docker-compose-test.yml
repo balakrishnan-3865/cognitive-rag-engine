@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for Integration Tests
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    container_name: cognitive-rag-postgres-test
+    environment:
+      POSTGRES_DB: cognitive_rag_engine_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - cognitive-rag-test-network
+
+  # Elasticsearch for Integration Tests
+  elasticsearch-test:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: cognitive-rag-elasticsearch-test
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=testpassword
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9201:9200"
+    volumes:
+      - elasticsearch_test_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:testpassword http://localhost:9200/_cluster/health | grep -q '\"status\":\"'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - cognitive-rag-test-network
+
+volumes:
+  postgres_test_data:
+    driver: local
+  elasticsearch_test_data:
+    driver: local
+
+networks:
+  cognitive-rag-test-network:
+    driver: bridge

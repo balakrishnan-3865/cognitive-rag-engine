@@ -93,6 +93,12 @@
 			<version>1.1.2</version>
 		</dependency>
 
+		<!-- Maven Example -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+		</dependency>
+
 		<!-- MyBatis Plus -->
 		<dependency>
 			<groupId>com.baomidou</groupId>

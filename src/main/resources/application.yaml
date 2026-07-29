@@ -44,6 +44,12 @@ spring:
         initialize-schema: true   # Auto-creates vector_store table on startup
         max-document-batch-size: ${VECTORSTORE_BATCH_SIZE:100}  # Batch size for vector ingestion
 
+  # Elasticsearch Configuration
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URI:http://localhost:9200}
+    username: ${ELASTICSEARCH_USERNAME:elastic}
+    password: ${ELASTICSEARCH_PASSWORD:changeme}
+
   # Flyway Database Migration
   flyway:
     locations: classpath:db/migration
