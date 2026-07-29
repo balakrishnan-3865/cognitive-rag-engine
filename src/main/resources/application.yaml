@@ -109,6 +109,11 @@ qa:
   temperature: ${QA_TEMPERATURE:0.7}
   max-tokens: ${QA_MAX_TOKENS:2000}
 
+# Hybrid Search Configuration (Stage 4 - Dense + Sparse RRF Fusion)
+hybrid-search:
+  # Per-source candidate depth fetched from each retriever before RRF fusion and truncation to qa.top-k-default
+  candidate-pool-size: ${HYBRID_SEARCH_CANDIDATE_POOL_SIZE:30}
+
 # Logging Configuration
 #logging:
 #  level:

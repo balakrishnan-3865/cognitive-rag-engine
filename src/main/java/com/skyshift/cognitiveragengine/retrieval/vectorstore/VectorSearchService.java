@@ -85,6 +85,7 @@ public class VectorSearchService {
             Map<String, Object> metadata = document.getMetadata();
 
             Long documentId = extractLong(metadata, "documentId");
+            Long chunkId = extractLong(metadata, "chunkId");
             Long returnedGroupId = extractLong(metadata, "groupId");
             Integer chunkNumber = extractInteger(metadata, "chunkNumber");
             Integer startPosition = extractInteger(metadata, "startPosition");
@@ -102,6 +103,7 @@ public class VectorSearchService {
                     document.getId(),
                     document.getText(),
                     documentId,
+                    chunkId,
                     returnedGroupId,
                     chunkNumber,
                     startPosition,

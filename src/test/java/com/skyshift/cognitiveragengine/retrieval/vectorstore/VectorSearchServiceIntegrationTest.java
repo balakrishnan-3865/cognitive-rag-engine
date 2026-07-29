@@ -249,6 +249,7 @@ class VectorSearchServiceIntegrationTest {
     void testSearchIntegration_WithNumericMetadataTypeConversion() {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("documentId", 1);
+        metadata.put("chunkId", 1501L);
         metadata.put("groupId", 100);
         metadata.put("chunkNumber", 5);
         metadata.put("startPosition", 50);
@@ -278,6 +279,7 @@ class VectorSearchServiceIntegrationTest {
                                                Integer startPosition, Integer endPosition) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("documentId", documentId);
+        metadata.put("chunkId", documentId * 1000 + chunkNumber);
         metadata.put("groupId", groupId);
         metadata.put("chunkNumber", chunkNumber);
         metadata.put("startPosition", startPosition);

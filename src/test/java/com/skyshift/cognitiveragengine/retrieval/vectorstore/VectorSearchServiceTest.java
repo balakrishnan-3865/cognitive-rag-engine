@@ -34,6 +34,7 @@ class VectorSearchServiceTest {
     void testSearchWithValidParams_ReturnsRankedResults() {
         Map<String, Object> metadata1 = new HashMap<>();
         metadata1.put("documentId", 1L);
+        metadata1.put("chunkId", 501L);
         metadata1.put("groupId", 100L);
         metadata1.put("chunkNumber", 1);
         metadata1.put("startPosition", 0);
@@ -57,6 +58,7 @@ class VectorSearchServiceTest {
         assertEquals("doc-1", hit.id());
         assertEquals("First chunk content", hit.content());
         assertEquals(1L, hit.documentId());
+        assertEquals(501L, hit.chunkId());
         assertEquals(100L, hit.groupId());
         assertEquals(1, hit.chunkNumber());
         assertEquals(0, hit.startPosition());
@@ -68,6 +70,7 @@ class VectorSearchServiceTest {
     void testSearchWithNullScore_DefaultsToZero() {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("documentId", 1L);
+        metadata.put("chunkId", 501L);
         metadata.put("groupId", 100L);
         metadata.put("chunkNumber", 1);
         metadata.put("startPosition", 0);
@@ -142,6 +145,7 @@ class VectorSearchServiceTest {
     void testSearchWithCrossTenantViolation_ThrowsVectorSearchException() {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("documentId", 1L);
+        metadata.put("chunkId", 501L);
         metadata.put("groupId", 200L);
         metadata.put("chunkNumber", 1);
         metadata.put("startPosition", 0);
@@ -167,6 +171,7 @@ class VectorSearchServiceTest {
     void testSearchWithMissingRequiredMetadataField_ThrowsVectorSearchException() {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("documentId", 1L);
+        metadata.put("chunkId", 501L);
         metadata.put("groupId", 100L);
         // Missing chunkNumber
 
@@ -190,6 +195,7 @@ class VectorSearchServiceTest {
     void testSearchWithInvalidTypeInMetadata_ThrowsVectorSearchException() {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("documentId", "not-a-long");
+        metadata.put("chunkId", 501L);
         metadata.put("groupId", 100L);
         metadata.put("chunkNumber", 1);
         metadata.put("startPosition", 0);
@@ -215,6 +221,7 @@ class VectorSearchServiceTest {
     void testSearchWithMultipleResults_ReturnsSortedByScore() {
         Map<String, Object> metadata1 = new HashMap<>();
         metadata1.put("documentId", 1L);
+        metadata1.put("chunkId", 501L);
         metadata1.put("groupId", 100L);
         metadata1.put("chunkNumber", 1);
         metadata1.put("startPosition", 0);
@@ -222,6 +229,7 @@ class VectorSearchServiceTest {
 
         Map<String, Object> metadata2 = new HashMap<>();
         metadata2.put("documentId", 1L);
+        metadata2.put("chunkId", 502L);
         metadata2.put("groupId", 100L);
         metadata2.put("chunkNumber", 2);
         metadata2.put("startPosition", 100);
@@ -267,6 +275,7 @@ class VectorSearchServiceTest {
     void testSearchWithNumericTypeConversion_ConvertsNumberToLong() {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("documentId", 1);
+        metadata.put("chunkId", 501L);
         metadata.put("groupId", 100L);
         metadata.put("chunkNumber", 1);
         metadata.put("startPosition", 0);

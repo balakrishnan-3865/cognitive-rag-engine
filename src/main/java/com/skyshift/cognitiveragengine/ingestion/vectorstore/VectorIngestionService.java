@@ -124,6 +124,7 @@ public class VectorIngestionService {
         Map<String, Object> metadata = new LinkedHashMap<>();
 
         // Set column-based fields first (these take precedence)
+        metadata.put("chunkId", chunk.getId());
         metadata.put("chunkNumber", chunk.getChunkNumber());
         metadata.put("documentId", chunk.getDocumentId());
         metadata.put("groupId", chunk.getGroupId());
