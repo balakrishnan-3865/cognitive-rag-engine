@@ -127,8 +127,8 @@ public class VectorIngestionService {
         metadata.put("chunkNumber", chunk.getChunkNumber());
         metadata.put("documentId", chunk.getDocumentId());
         metadata.put("groupId", chunk.getGroupId());
-        metadata.put("startPosition", chunk.getStartPosition());
-        metadata.put("endPosition", chunk.getEndPosition());
+//        metadata.put("startPosition", chunk.getStartPosition());
+//        metadata.put("endPosition", chunk.getEndPosition());
 
         // Merge JSON metadata if present, avoiding overwrites
         if (chunk.getMetadataJson() != null && !chunk.getMetadataJson().isBlank()) {

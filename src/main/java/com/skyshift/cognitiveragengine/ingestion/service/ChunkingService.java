@@ -57,8 +57,6 @@ public class ChunkingService {
                     .pageNumber(pageNumber)
                     .tokenCount(estimateTokenCount(chunk.getText()))
                     .source(doc.getMetadata().getOrDefault("source", "unknown").toString())
-                    .confidenceScore(0.95)
-                    .parsedAt(now)
                     .chunkStrategy("fixed-token-300-v1")
                     .chunkIndex(globalChunkIndex)
                     .documentId(documentId)

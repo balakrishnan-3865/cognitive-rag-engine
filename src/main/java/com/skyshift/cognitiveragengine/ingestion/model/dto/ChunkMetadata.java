@@ -14,8 +14,6 @@ public class ChunkMetadata {
     private Integer pageNumber;
     private Integer tokenCount;
     private String source;
-    private Double confidenceScore;
-    private LocalDateTime parsedAt;
     private String chunkStrategy;
     private Integer chunkIndex;
     private Long documentId;

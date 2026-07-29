@@ -50,6 +50,15 @@ spring:
     username: ${ELASTICSEARCH_USERNAME:elastic}
     password: ${ELASTICSEARCH_PASSWORD:changeme}
 
+  # Async Task Execution Configuration
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 10
+        queue-capacity: 100
+      thread-name-prefix: async-task-
+
   # Flyway Database Migration
   flyway:
     locations: classpath:db/migration
@@ -58,8 +67,8 @@ spring:
 # Document Ingestion Configuration (Phase 2.2)
 document:
   ingestion:
-    chunk-size-tokens: ${DOCUMENT_INGESTION_CHUNK_SIZE_TOKENS:300}
-    chunk-overlap-percentage: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_PERCENTAGE:20}
+    chunk-size-tokens: ${DOCUMENT_INGESTION_CHUNK_SIZE_TOKENS:200}
+    chunk-overlap-percentage: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_PERCENTAGE:10}
     embedding-batch-size: ${DOCUMENT_INGESTION_EMBEDDING_BATCH_SIZE:50}
     elasticsearch-batch-size: ${DOCUMENT_INGESTION_ELASTICSEARCH_BATCH_SIZE:100}
     max-retries: ${DOCUMENT_INGESTION_MAX_RETRIES:3}
