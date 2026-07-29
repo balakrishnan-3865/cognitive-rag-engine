@@ -351,6 +351,71 @@ minio-bucket/
 
 ---
 
+## Stage 03: Retrieval Augmented Generation (RAG) Question-Answering
+
+**Status:** Phase 3.1 ✅ COMPLETE  
+**Focus:** Answer user queries using semantically similar document chunks and generative AI
+
+### Phase 3.1: REST API & ChatClient Integration ✅ COMPLETE
+
+**Status:** ✅ Completed  
+**Focus:** API endpoint accepting user queries, semantic chunk retrieval from pgvector, AI-powered answer generation with prompt templates
+
+**Completed Implementation:**
+
+✅ **API Endpoint & Request Handling**
+- [x] REST endpoint `/api/v1/qa/ask` accepting POST requests
+- [x] Request validation with query and tenant isolation (groupId)
+- [x] Standard API response wrapper with answer and source citations
+- [x] Comprehensive error handling with graceful degradation
+
+✅ **Semantic Chunk Retrieval**
+- [x] Service layer retrieves similar chunks from pgvector based on query
+- [x] Configurable retrieval parameters (top-K, similarity threshold) via application properties
+- [x] Tenant isolation filtering by groupId throughout retrieval pipeline
+- [x] Graceful handling when no relevant chunks available
+
+✅ **ChatClient Integration & Prompt Engineering**
+- [x] Spring AI ChatClient with advisor pattern for RAG
+- [x] Automatic LLM response structuring via entity extraction
+- [x] Externalized prompt templates loaded from resources folder
+- [x] System, context, and query prompt templates for flexible LLM behavior
+- [x] Answer generation with source chunk citations
+
+✅ **Response Modeling**
+- [x] Answer flag indicating successful completion
+- [x] Source citations with chunk text, document reference, and similarity score
+- [x] Graceful "unanswered" responses when context insufficient
+- [x] Error messages for debugging and client-side handling
+
+✅ **Configuration Management**
+- [x] Environment-based configuration with sensible defaults
+- [x] Tunable parameters: retrieval count, similarity threshold, temperature, token limits
+- [x] Environment variable overrides for deployment flexibility
+
+**Phase 3.1 Exit Checklist:** ✅ ALL COMPLETE
+- [x] POST `/api/v1/qa/ask` accepts query and tenant ID
+- [x] Similar chunks retrieved from vector store with tenant filtering
+- [x] Answer generated using LLM with prompt context
+- [x] Response includes answer text and source citations
+- [x] No relevant context gracefully returns unanswered response
+- [x] All retrieval parameters configurable via environment
+- [x] Prompt templates externalized and loadable from resources
+- [x] Standard API response wrapper applied
+- [x] Comprehensive error handling without crashing
+
+**Architectural Highlights:** ✅
+- [x] Modular service layer separating retrieval from generation logic
+- [x] Advisor pattern for clean RAG integration with ChatClient
+- [x] Configuration-driven flexibility (topK, threshold, temperature, tokens)
+- [x] Tenant isolation maintained throughout retrieval and generation
+- [x] Graceful degradation when context insufficient
+- [x] Production-ready with comprehensive logging and error handling
+
+**Stage 3 Complete** → Checkpoint: Q&A endpoint operational, answering queries with context-aware LLM responses
+
+---
+
 ## Development Notes
 
 - **Build:** `./mvnw clean compile` / `./mvnw test` / `./mvnw spring-boot:run`
