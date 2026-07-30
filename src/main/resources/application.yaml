@@ -16,21 +16,21 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 5
 
-  # Spring AI - DashScope (Alibaba) Configuration and Ollama
+  # Spring AI - Groq (via OpenAI-compatible API) Configuration (ChatModel) and Ollama (Embeddings)
   ai:
     model:
-      chat: ollama
+      chat: openai
       embedding: ollama
-    # dashscope:
-    #   api-key: ${DASHSCOPE_API_KEY:}
-    #   chat:
-    #     options:
-    #       model: glm-5
-    ollama:
-      base-url: http://localhost:11434
+    openai:
+      api-key: ${GROQ_API_KEY}
+      base-url: https://api.groq.com/openai
       chat:
         options:
-          model: mistral:7b
+          model: llama-3.1-8b-instant
+          temperature: 0.7
+          top-p: 1.0
+    ollama:
+      base-url: http://localhost:11434
       embedding:
         options:
           model: nomic-embed-text
@@ -125,7 +125,7 @@ management:
     tracing:
       endpoint: ${LANGFUSE_OTEL_ENDPOINT:http://localhost:3000/api/public/otel/v1/traces}
       headers:
-        Authorization: ${LANGFUSE_OTEL_AUTH_HEADER:}  # Basic base64(publicKey:secretKey) from a Langfuse project's API keys; set in local .env, never commit the real value
+        Authorization: ${LANGFUSE_OTEL_AUTH_HEADER}  # Basic base64(publicKey:secretKey) from a Langfuse project's API keys; set in local .env, never commit the real value
         x-langfuse-ingestion-version: "4"
   endpoints:
     web:
