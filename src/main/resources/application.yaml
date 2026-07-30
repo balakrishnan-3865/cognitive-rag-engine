@@ -33,16 +33,16 @@ spring:
       base-url: http://localhost:11434
       embedding:
         options:
-          model: nomic-embed-text
-          truncate: true
+          model: qwen3-embedding:0.6b
+          truncate: false
     # Vector Store Configuration (PgVector)
     vectorstore:
       pgvector:
-        dimensions: 768           # Match embedding model (nomic-embed-text)
+        dimensions: 1024           # Match embedding model (nomic-embed-text)
         distance-type: COSINE_DISTANCE     # Options: COSINE, EUCLIDEAN, INNER_PRODUCT
         index-type: HNSW          # Options: HNSW, IVFFLAT
         initialize-schema: true   # Auto-creates vector_store table on startup
-        max-document-batch-size: ${VECTORSTORE_BATCH_SIZE:100}  # Batch size for vector ingestion
+        max-document-batch-size: ${VECTORSTORE_BATCH_SIZE:50}  # Batch size for vector ingestion
 
   # Elasticsearch Configuration
   elasticsearch:
@@ -64,11 +64,11 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-# Document Ingestion Configuration (Phase 2.2)
+# Document Ingestion Configuration (Phase 2.2) - Recursive Character Chunking
 document:
   ingestion:
-    chunk-size-tokens: ${DOCUMENT_INGESTION_CHUNK_SIZE_TOKENS:220}
-    chunk-overlap-percentage: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_PERCENTAGE:20}
+    chunk-size-chars: ${DOCUMENT_INGESTION_CHUNK_SIZE_CHARS:1200}
+    chunk-overlap-chars: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_CHARS:200}
     embedding-batch-size: ${DOCUMENT_INGESTION_EMBEDDING_BATCH_SIZE:50}
     elasticsearch-batch-size: ${DOCUMENT_INGESTION_ELASTICSEARCH_BATCH_SIZE:50}
     max-retries: ${DOCUMENT_INGESTION_MAX_RETRIES:3}

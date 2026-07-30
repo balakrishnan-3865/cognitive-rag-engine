@@ -11,9 +11,11 @@ import java.time.LocalDateTime;
 @Builder
 public class ChunkMetadata {
 
+    private String documentName;
     private Integer pageNumber;
     private Integer tokenCount;
-    private String source;
+    private Integer length;
+    private Boolean hasOverlap;
     private String chunkStrategy;
     private Integer chunkIndex;
     private Long documentId;
