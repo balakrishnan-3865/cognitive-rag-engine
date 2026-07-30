@@ -1,6 +1,3 @@
-Question:
-{question}
-
 Execution Requirements:
 1. You must answer solely based on the provided retrieval evidence. Do not supplement with information not found in the evidence.
 2. No speculation, no extension with common sense, and no presenting uncertain content as definitive conclusions.

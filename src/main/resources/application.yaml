@@ -30,7 +30,7 @@ spring:
       base-url: http://localhost:11434
       chat:
         options:
-          model: deepseek-r1
+          model: mistral:7b
       embedding:
         options:
           model: nomic-embed-text
@@ -67,10 +67,10 @@ spring:
 # Document Ingestion Configuration (Phase 2.2)
 document:
   ingestion:
-    chunk-size-tokens: ${DOCUMENT_INGESTION_CHUNK_SIZE_TOKENS:200}
-    chunk-overlap-percentage: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_PERCENTAGE:10}
+    chunk-size-tokens: ${DOCUMENT_INGESTION_CHUNK_SIZE_TOKENS:220}
+    chunk-overlap-percentage: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_PERCENTAGE:20}
     embedding-batch-size: ${DOCUMENT_INGESTION_EMBEDDING_BATCH_SIZE:50}
-    elasticsearch-batch-size: ${DOCUMENT_INGESTION_ELASTICSEARCH_BATCH_SIZE:100}
+    elasticsearch-batch-size: ${DOCUMENT_INGESTION_ELASTICSEARCH_BATCH_SIZE:50}
     max-retries: ${DOCUMENT_INGESTION_MAX_RETRIES:3}
     initial-retry-delay-ms: ${DOCUMENT_INGESTION_INITIAL_RETRY_DELAY_MS:1000}
     retry-backoff-multiplier: ${DOCUMENT_INGESTION_RETRY_BACKOFF_MULTIPLIER:2.0}
@@ -103,7 +103,7 @@ storage:
 
 # QA Configuration (Stage 3)
 qa:
-  top-k-default: ${QA_TOP_K_DEFAULT:5}
+  top-k-default: ${QA_TOP_K_DEFAULT:20}
   similarity-threshold: ${QA_SIMILARITY_THRESHOLD:0.5}
   chat-timeout-ms: ${QA_CHAT_TIMEOUT_MS:30000}
   temperature: ${QA_TEMPERATURE:0.7}
@@ -113,6 +113,24 @@ qa:
 hybrid-search:
   # Per-source candidate depth fetched from each retriever before RRF fusion and truncation to qa.top-k-default
   candidate-pool-size: ${HYBRID_SEARCH_CANDIDATE_POOL_SIZE:30}
+
+# Observability - traces (ChatClient/Advisor/VectorStore/EmbeddingModel spans) export to Langfuse
+# via OTLP; operational + rag.* metrics export to Prometheus/Grafana (deploy/observability) via
+# the /actuator/prometheus scrape endpoint. See docs/STAGE5_EVAL_OBSERVABILITY_PLAN.md.
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}  # trace every request; this is an eval/dev setup, not high-throughput prod
+  otlp:
+    tracing:
+      endpoint: ${LANGFUSE_OTEL_ENDPOINT:http://localhost:3000/api/public/otel/v1/traces}
+      headers:
+        Authorization: ${LANGFUSE_OTEL_AUTH_HEADER:}  # Basic base64(publicKey:secretKey) from a Langfuse project's API keys; set in local .env, never commit the real value
+        x-langfuse-ingestion-version: "4"
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
 
 # Logging Configuration
 #logging:

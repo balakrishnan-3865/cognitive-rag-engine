@@ -88,8 +88,8 @@ public class VectorSearchService {
             Long chunkId = extractLong(metadata, "chunkId");
             Long returnedGroupId = extractLong(metadata, "groupId");
             Integer chunkNumber = extractInteger(metadata, "chunkNumber");
-            Integer startPosition = extractInteger(metadata, "startPosition");
-            Integer endPosition = extractInteger(metadata, "endPosition");
+//            Integer startPosition = extractInteger(metadata, "startPosition");
+//            Integer endPosition = extractInteger(metadata, "endPosition");
 
             if (!expectedGroupId.equals(returnedGroupId)) {
                 throw new VectorSearchException(
@@ -106,8 +106,8 @@ public class VectorSearchService {
                     chunkId,
                     returnedGroupId,
                     chunkNumber,
-                    startPosition,
-                    endPosition,
+//                    startPosition,
+//                    endPosition,
                     score
             );
         } catch (ClassCastException e) {

@@ -6,6 +6,8 @@ import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.VectorSearchService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +40,8 @@ class HybridChunkRetrievalServiceTest {
     void setUp() {
         hybridSearchProperties = new HybridSearchProperties();
         hybridSearchProperties.setCandidatePoolSize(CANDIDATE_POOL_SIZE);
-        service = new HybridChunkRetrievalService(vectorSearchService, elasticsearchChunkIndexService, hybridSearchProperties);
+        service = new HybridChunkRetrievalService(vectorSearchService, elasticsearchChunkIndexService, hybridSearchProperties,
+                ObservationRegistry.NOOP, new SimpleMeterRegistry());
     }
 
     @Test
@@ -114,6 +117,7 @@ class HybridChunkRetrievalServiceTest {
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
 
         Document document = bundle.documents().get(0);
+        assertEquals("1", document.getMetadata().get("chunkId"));
         assertEquals("10", document.getMetadata().get("documentId"));
         assertEquals("1", document.getMetadata().get("chunkNumber"));
         assertNotNull(document.getMetadata().get("similarity"));
@@ -130,7 +134,7 @@ class HybridChunkRetrievalServiceTest {
     }
 
     private VectorHit vectorHit(Long documentId, Long chunkId, String content) {
-        return new VectorHit("vec-" + chunkId, content, documentId, chunkId, 100L, chunkId.intValue(), 0, content.length(), 0.9);
+        return new VectorHit("vec-" + chunkId, content, documentId, chunkId, 100L, chunkId.intValue(), 0.9);
     }
 
     private KeywordHit keywordHit(Long documentId, Long chunkId, String chunkText) {

@@ -141,15 +141,11 @@ class VectorSearchServiceIntegrationTest {
         assertNotNull(hit.documentId());
         assertNotNull(hit.groupId());
         assertNotNull(hit.chunkNumber());
-        assertNotNull(hit.startPosition());
-        assertNotNull(hit.endPosition());
         assertNotNull(hit.score());
 
         assertEquals(5L, hit.documentId());
         assertEquals(150L, hit.groupId());
         assertEquals(3, hit.chunkNumber());
-        assertEquals(200, hit.startPosition());
-        assertEquals(350, hit.endPosition());
     }
 
     @Test
@@ -271,8 +267,6 @@ class VectorSearchServiceIntegrationTest {
         assertEquals(1L, hit.documentId());
         assertEquals(100L, hit.groupId());
         assertEquals(5, hit.chunkNumber());
-        assertEquals(50, hit.startPosition());
-        assertEquals(150, hit.endPosition());
     }
 
     private Map<String, Object> createMetadata(Long documentId, Long groupId, Integer chunkNumber,

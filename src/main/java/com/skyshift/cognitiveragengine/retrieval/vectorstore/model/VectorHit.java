@@ -7,7 +7,7 @@ public record VectorHit(
     Long chunkId,
     Long groupId,
     Integer chunkNumber,
-    Integer startPosition,
-    Integer endPosition,
+//    Integer startPosition,
+//    Integer endPosition,
     Double score
 ) {}

@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # The Spring Boot app runs on the host (./mvnw spring-boot:run), not as a container in this
+  # stack. host.docker.internal resolves to the host from inside the prometheus container - see
+  # the extra_hosts entry on the prometheus service in docker-compose.yml, which is required for
+  # this to resolve on Linux Docker Engine (Docker Desktop maps it automatically).
+  - job_name: cognitive-rag-engine
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8080"]

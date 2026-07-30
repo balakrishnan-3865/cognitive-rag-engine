@@ -1,0 +1,54 @@
+version: '3.8'
+
+# Prometheus + Grafana for operational and rag.* metrics (JVM/HTTP/DB-pool health, retrieval
+# fusion stats, generation-fallback rate). Standalone stack, isolated from deploy/docker-compose.yml
+# and deploy/langfuse - metrics are a separate observability signal from traces (see
+# docs/STAGE5_EVAL_OBSERVABILITY_PLAN.md for the rationale). Grafana's port is remapped to 3001
+# since Langfuse already occupies 3000.
+#
+# The Spring Boot app itself is NOT part of this stack - it runs on the host
+# (./mvnw spring-boot:run) and is scraped via host.docker.internal (see prometheus.yml).
+
+services:
+  prometheus:
+    image: docker.io/prom/prometheus:latest
+    container_name: ${OBSERVABILITY_PROMETHEUS_CONTAINER_NAME:-cognitive-rag-observability-prometheus}
+    restart: unless-stopped
+    extra_hosts:
+      # Required for host.docker.internal to resolve on Linux Docker Engine; Docker Desktop
+      # (Windows/Mac) maps it automatically but this entry is harmless there too.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - observability_prometheus_data:/prometheus
+    ports:
+      - "${OBSERVABILITY_PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - observability-network
+
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    container_name: ${OBSERVABILITY_GRAFANA_CONTAINER_NAME:-cognitive-rag-observability-grafana}
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${OBSERVABILITY_GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${OBSERVABILITY_GRAFANA_ADMIN_PASSWORD:-admin} # CHANGEME
+    volumes:
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - observability_grafana_data:/var/lib/grafana
+    ports:
+      - "${OBSERVABILITY_GRAFANA_PORT:-3001}:3000"
+    networks:
+      - observability-network
+
+volumes:
+  observability_prometheus_data:
+    driver: local
+  observability_grafana_data:
+    driver: local
+
+networks:
+  observability-network:
+    driver: bridge

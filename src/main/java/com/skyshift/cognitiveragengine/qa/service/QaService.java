@@ -23,15 +23,18 @@ public class QaService {
     private final ReadyChunkDocumentRetriever readyChunkDocumentRetriever;
     private final ChatClient chatClient;
     private final PromptTemplate qaQueryPromptTemplate;
+    private final KnowledgeSourceResponseConverter responseConverter;
 
     public QaService(
             ReadyChunkDocumentRetriever readyChunkDocumentRetriever,
             ChatClient chatClient,
-            @Qualifier("qaQueryPromptTemplate") PromptTemplate qaQueryPromptTemplate
+            @Qualifier("qaQueryPromptTemplate") PromptTemplate qaQueryPromptTemplate,
+            KnowledgeSourceResponseConverter responseConverter
     ) {
         this.readyChunkDocumentRetriever = readyChunkDocumentRetriever;
         this.chatClient = chatClient;
         this.qaQueryPromptTemplate = qaQueryPromptTemplate;
+        this.responseConverter = responseConverter;
     }
 
     public QAResponse askQuestion(String query, Long groupId) {
@@ -55,13 +58,7 @@ public class QaService {
             String userPrompt = buildUserPrompt(query);
 
             log.debug("Calling ChatClient with advisors to generate answer");
-            KnowledgeSourceResponse response = chatClient.prompt(userPrompt)
-                    .advisors(advisor -> advisor
-                            .param("groupId", groupId)
-                            .param(ReadyChunkDocumentRetriever.PREFETCHED_DOCUMENTS_CONTEXT_KEY, documentBundle.documents())
-                    )
-                    .call()
-                    .entity(KnowledgeSourceResponse.class);
+            KnowledgeSourceResponse response = invokeKnowledgeSourceResponse(userPrompt, groupId, documentBundle.documents());
 
             log.info("Question answered successfully");
 
@@ -81,10 +78,31 @@ public class QaService {
         }
     }
 
+    private KnowledgeSourceResponse invokeKnowledgeSourceResponse(
+            String userPrompt, Long groupId, List<Document> documents) throws Exception {
+
+        // Raw response + lenient conversion: reasoning models (e.g. deepseek-r1) prepend a
+        // <think> preamble that breaks strict entity() deserialization, so entity() isn't
+        // used here - it forced a second full LLM call on every request to fall back to this
+        // same conversion anyway. KnowledgeSourceResponseConverter already handles both clean
+        // JSON and preamble-polluted responses.
+        log.debug("Invoking ChatClient and converting raw response");
+        String rawResponse = chatClient.prompt(userPrompt)
+                .advisors(advisor -> advisor
+                        .param("groupId", groupId)
+                        .param(ReadyChunkDocumentRetriever.PREFETCHED_DOCUMENTS_CONTEXT_KEY, documents)
+                )
+                .call()
+                .content();
+
+        return responseConverter.convertRawResponse(rawResponse);
+    }
+
     private List<SourceChunk> convertToSourceChunks(List<Document> documents) {
         return documents.stream()
                 .map(doc -> new SourceChunk(
                         doc.getText(),
+                        Long.parseLong((String) doc.getMetadata().get("chunkId")),
                         Long.parseLong((String) doc.getMetadata().get("documentId")),
                         Integer.parseInt((String) doc.getMetadata().get("chunkNumber")),
                         Double.parseDouble((String) doc.getMetadata().get("similarity"))

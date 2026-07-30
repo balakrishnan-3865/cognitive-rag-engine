@@ -6,6 +6,11 @@ import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.VectorSearchService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
@@ -15,6 +20,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -22,41 +28,82 @@ import java.util.stream.Collectors;
 public class HybridChunkRetrievalService {
 
     private static final int RRF_K = 60;
+    private static final String OBSERVATION_NAME = "rag.hybrid_retrieval";
 
     private final VectorSearchService vectorSearchService;
     private final ElasticsearchChunkIndexService elasticsearchChunkIndexService;
     private final HybridSearchProperties hybridSearchProperties;
+    private final ObservationRegistry observationRegistry;
+    private final DistributionSummary denseHitsSummary;
+    private final DistributionSummary sparseHitsSummary;
+    private final DistributionSummary fusedCountSummary;
+    private final Counter sparseDegradedCounter;
 
     public HybridChunkRetrievalService(
             VectorSearchService vectorSearchService,
             ElasticsearchChunkIndexService elasticsearchChunkIndexService,
-            HybridSearchProperties hybridSearchProperties
+            HybridSearchProperties hybridSearchProperties,
+            ObservationRegistry observationRegistry,
+            MeterRegistry meterRegistry
     ) {
         this.vectorSearchService = vectorSearchService;
         this.elasticsearchChunkIndexService = elasticsearchChunkIndexService;
         this.hybridSearchProperties = hybridSearchProperties;
+        this.observationRegistry = observationRegistry;
+        this.denseHitsSummary = DistributionSummary.builder("rag.retrieval.dense.hits")
+                .description("Dense (pgvector) candidate hits returned before RRF fusion")
+                .register(meterRegistry);
+        this.sparseHitsSummary = DistributionSummary.builder("rag.retrieval.sparse.hits")
+                .description("Sparse (Elasticsearch) candidate hits returned before RRF fusion")
+                .register(meterRegistry);
+        this.fusedCountSummary = DistributionSummary.builder("rag.retrieval.fused.count")
+                .description("Distinct chunks remaining after RRF fusion, before topK truncation")
+                .register(meterRegistry);
+        this.sparseDegradedCounter = Counter.builder("rag.retrieval.sparse.degraded")
+                .description("Requests where sparse (Elasticsearch) search failed and fusion degraded to dense-only")
+                .register(meterRegistry);
     }
 
     public DocumentBundle retrieveRelevantChunks(String query, Long groupId, int topK) {
-        int candidatePoolSize = hybridSearchProperties.getCandidatePoolSize();
+        Observation observation = Observation.createNotStarted(OBSERVATION_NAME, observationRegistry)
+                .lowCardinalityKeyValue("groupId", String.valueOf(groupId));
 
-        List<VectorHit> denseHits = vectorSearchService.search(query, groupId, candidatePoolSize);
-        log.debug("Retrieved {} dense (vector) candidates for fusion", denseHits.size());
+        return observation.observe(() -> {
+            int candidatePoolSize = hybridSearchProperties.getCandidatePoolSize();
 
-        List<KeywordHit> sparseHits = searchSparseChunks(query, groupId, candidatePoolSize);
-        log.debug("Retrieved {} sparse (keyword) candidates for fusion", sparseHits.size());
+            List<VectorHit> denseHits = vectorSearchService.search(query, groupId, candidatePoolSize);
+            log.debug("Retrieved {} dense (vector) candidates for fusion", denseHits.size());
+            denseHitsSummary.record(denseHits.size());
 
-        List<RankedChunk> fused = fuseWithReciprocalRankFusion(denseHits, sparseHits);
-        log.info("RRF fusion produced {} distinct chunks from {} dense + {} sparse candidates",
-                fused.size(), denseHits.size(), sparseHits.size());
+            AtomicBoolean sparseDegraded = new AtomicBoolean(false);
+            List<KeywordHit> sparseHits = searchSparseChunks(query, groupId, candidatePoolSize, sparseDegraded);
+            log.debug("Retrieved {} sparse (keyword) candidates for fusion", sparseHits.size());
+            sparseHitsSummary.record(sparseHits.size());
 
-        List<Document> documents = fused.stream()
-                .sorted(Comparator.comparingDouble(RankedChunk::rrfScore).reversed())
-                .limit(topK)
-                .map(this::toDocument)
-                .collect(Collectors.toList());
+            List<RankedChunk> fused = fuseWithReciprocalRankFusion(denseHits, sparseHits);
+            log.info("RRF fusion produced {} distinct chunks from {} dense + {} sparse candidates",
+                    fused.size(), denseHits.size(), sparseHits.size());
+            fusedCountSummary.record(fused.size());
 
-        return new DocumentBundle(documents);
+            List<Document> documents = fused.stream()
+                    .sorted(Comparator.comparingDouble(RankedChunk::rrfScore).reversed())
+                    .limit(topK)
+                    .map(this::toDocument)
+                    .collect(Collectors.toList());
+
+            // groupId/sparseDegraded are bounded-cardinality and become metric tags on the
+            // rag.hybrid_retrieval timer; per-chunk detail is trace-only (unbounded cardinality
+            // would blow up the metric backend if used as a tag).
+            observation
+                    .lowCardinalityKeyValue("sparseDegraded", String.valueOf(sparseDegraded.get()))
+                    .highCardinalityKeyValue("denseHitCount", String.valueOf(denseHits.size()))
+                    .highCardinalityKeyValue("sparseHitCount", String.valueOf(sparseHits.size()))
+                    .highCardinalityKeyValue("fusedChunkIds", fused.stream()
+                            .map(chunk -> chunk.chunkId() + ":" + String.format("%.4f", chunk.rrfScore()))
+                            .collect(Collectors.joining(",")));
+
+            return new DocumentBundle(documents);
+        });
     }
 
     /**
@@ -64,11 +111,13 @@ public class HybridChunkRetrievalService {
      * eventually-consistent treatment of ES elsewhere in the ingestion flow). A sparse-search
      * failure degrades to dense-only fusion instead of failing the whole QA request.
      */
-    private List<KeywordHit> searchSparseChunks(String query, Long groupId, int candidatePoolSize) {
+    private List<KeywordHit> searchSparseChunks(String query, Long groupId, int candidatePoolSize, AtomicBoolean sparseDegraded) {
         try {
             return elasticsearchChunkIndexService.searchChunks(query, groupId, candidatePoolSize);
         } catch (Exception e) {
             log.error("Sparse (Elasticsearch) search failed, degrading to dense-only results: {}", e.getMessage(), e);
+            sparseDegradedCounter.increment();
+            sparseDegraded.set(true);
             return List.of();
         }
     }
@@ -85,14 +134,14 @@ public class HybridChunkRetrievalService {
         for (int rank = 0; rank < denseHits.size(); rank++) {
             VectorHit hit = denseHits.get(rank);
             RankedChunk chunk = fusedByChunkId.computeIfAbsent(hit.chunkId(),
-                    id -> new RankedChunk(hit.documentId(), hit.chunkNumber(), hit.content()));
+                    id -> new RankedChunk(id, hit.documentId(), hit.chunkNumber(), hit.content()));
             chunk.applyRank(rank + 1);
         }
 
         for (int rank = 0; rank < sparseHits.size(); rank++) {
             KeywordHit hit = sparseHits.get(rank);
             RankedChunk chunk = fusedByChunkId.computeIfAbsent(hit.chunkId(),
-                    id -> new RankedChunk(hit.documentId(), hit.chunkIndex(), hit.chunkText()));
+                    id -> new RankedChunk(id, hit.documentId(), hit.chunkIndex(), hit.chunkText()));
             chunk.applyRank(rank + 1);
         }
 
@@ -103,6 +152,7 @@ public class HybridChunkRetrievalService {
         return new Document(
                 chunk.content(),
                 Map.of(
+                        "chunkId", chunk.chunkId().toString(),
                         "documentId", chunk.documentId().toString(),
                         "chunkNumber", chunk.chunkNumber().toString(),
                         "similarity", String.valueOf(chunk.rrfScore())
@@ -116,12 +166,14 @@ public class HybridChunkRetrievalService {
      * raw cosine/BM25 score - the two are on different scales and RRF is what was ranked by.
      */
     private static final class RankedChunk {
+        private final Long chunkId;
         private final Long documentId;
         private final Integer chunkNumber;
         private final String content;
         private double rrfScore = 0.0;
 
-        RankedChunk(Long documentId, Integer chunkNumber, String content) {
+        RankedChunk(Long chunkId, Long documentId, Integer chunkNumber, String content) {
+            this.chunkId = chunkId;
             this.documentId = documentId;
             this.chunkNumber = chunkNumber;
             this.content = content;
@@ -129,6 +181,10 @@ public class HybridChunkRetrievalService {
 
         void applyRank(int rank) {
             rrfScore += 1.0 / (RRF_K + rank);
+        }
+
+        Long chunkId() {
+            return chunkId;
         }
 
         Long documentId() {

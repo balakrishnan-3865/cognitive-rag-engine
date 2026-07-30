@@ -61,8 +61,6 @@ class VectorSearchServiceTest {
         assertEquals(501L, hit.chunkId());
         assertEquals(100L, hit.groupId());
         assertEquals(1, hit.chunkNumber());
-        assertEquals(0, hit.startPosition());
-        assertEquals(100, hit.endPosition());
         assertEquals(0.95, hit.score());
     }
 

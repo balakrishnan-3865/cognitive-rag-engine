@@ -1,0 +1,191 @@
+version: '3.8'
+
+# Self-hosted Langfuse (v3) for RAG evaluation - traces, datasets, and LLM-as-judge scores.
+# Standalone stack: does not share postgres/minio/network with deploy/docker-compose.yml,
+# so it can be started/stopped independently of the core RAG infra.
+# Source: https://raw.githubusercontent.com/langfuse/langfuse/main/docker-compose.yml
+# Ports remapped vs upstream defaults to avoid clashing with deploy/docker-compose.yml:
+#   postgres 5432->5434 (main stack's postgres uses 5432), clickhouse native 9000->9002 (main stack's minio uses 9000)
+
+services:
+  langfuse-worker:
+    image: docker.io/langfuse/langfuse-worker:3
+    container_name: ${LANGFUSE_WORKER_CONTAINER_NAME:-cognitive-rag-langfuse-worker}
+    restart: unless-stopped
+    depends_on: &langfuse-depends-on
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${LANGFUSE_WORKER_PORT:-3030}:3030"
+    environment: &langfuse-worker-env
+      NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://${LANGFUSE_DB_USERNAME:-postgres}:${LANGFUSE_DB_PASSWORD:-postgres}@langfuse-postgres:5432/${LANGFUSE_DB_NAME:-postgres}
+      SALT: ${LANGFUSE_SALT:-mysalt} # CHANGEME: generate via `openssl rand -hex 32`
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000} # CHANGEME: generate via `openssl rand -hex 32`
+      TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY_ENABLED:-true}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-false}
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse} # CHANGEME
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${LANGFUSE_S3_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: ${LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT:-http://localhost:9095}
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: ${LANGFUSE_S3_BUCKET:-langfuse}
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: exports/
+      LANGFUSE_S3_BATCH_EXPORT_REGION: auto
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: ${LANGFUSE_REDIS_AUTH:-myredissecret} # CHANGEME
+      REDIS_TLS_ENABLED: "false"
+    networks:
+      - langfuse-network
+
+  langfuse-web:
+    image: docker.io/langfuse/langfuse:3
+    container_name: ${LANGFUSE_WEB_CONTAINER_NAME:-cognitive-rag-langfuse-web}
+    restart: unless-stopped
+    depends_on: *langfuse-depends-on
+    ports:
+      - "${LANGFUSE_WEB_PORT:-3000}:3000"
+    environment:
+      <<: *langfuse-worker-env
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-mysecret} # CHANGEME: generate via `openssl rand -hex 32`
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:-}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:-}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
+    networks:
+      - langfuse-network
+
+  langfuse-clickhouse:
+    image: docker.io/clickhouse/clickhouse-server:25.12
+    container_name: ${LANGFUSE_CLICKHOUSE_CONTAINER_NAME:-cognitive-rag-langfuse-clickhouse}
+    restart: unless-stopped
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse} # CHANGEME
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    ports:
+      - "127.0.0.1:${LANGFUSE_CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "127.0.0.1:${LANGFUSE_CLICKHOUSE_NATIVE_PORT:-9002}:9000"
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+    networks:
+      - langfuse-network
+
+  langfuse-minio:
+    image: cgr.dev/chainguard/minio
+    container_name: ${LANGFUSE_MINIO_CONTAINER_NAME:-cognitive-rag-langfuse-minio}
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: ${LANGFUSE_MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
+    ports:
+      - "${LANGFUSE_MINIO_PORT:-9095}:9000"
+      - "127.0.0.1:${LANGFUSE_MINIO_CONSOLE_PORT:-9096}:9001"
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+    networks:
+      - langfuse-network
+
+  langfuse-redis:
+    image: docker.io/redis:7
+    container_name: ${LANGFUSE_REDIS_CONTAINER_NAME:-cognitive-rag-langfuse-redis}
+    restart: unless-stopped
+    command: >
+      --requirepass ${LANGFUSE_REDIS_AUTH:-myredissecret}
+      --maxmemory-policy noeviction
+    ports:
+      - "127.0.0.1:${LANGFUSE_REDIS_PORT:-6379}:6379"
+    volumes:
+      - langfuse_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+    networks:
+      - langfuse-network
+
+  langfuse-postgres:
+    image: docker.io/postgres:17
+    container_name: ${LANGFUSE_POSTGRES_CONTAINER_NAME:-cognitive-rag-langfuse-postgres}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LANGFUSE_DB_USERNAME:-postgres}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    environment:
+      POSTGRES_USER: ${LANGFUSE_DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${LANGFUSE_DB_PASSWORD:-postgres} # CHANGEME
+      POSTGRES_DB: ${LANGFUSE_DB_NAME:-postgres}
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "127.0.0.1:${LANGFUSE_DB_PORT:-5434}:5432"
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+    networks:
+      - langfuse-network
+
+volumes:
+  langfuse_postgres_data:
+    driver: local
+  langfuse_clickhouse_data:
+    driver: local
+  langfuse_clickhouse_logs:
+    driver: local
+  langfuse_minio_data:
+    driver: local
+  langfuse_redis_data:
+    driver: local
+
+networks:
+  langfuse-network:
+    driver: bridge
