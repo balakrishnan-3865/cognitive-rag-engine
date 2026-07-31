@@ -8,9 +8,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.text.BreakIterator;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -74,7 +76,7 @@ public class ChunkingService {
                     .length(chunkText.length())
                     .hasOverlap(hasOverlap)
                     .tokenCount(estimateTokenCount(chunkText))
-                    .chunkStrategy("recursive-character-sentence-v1")
+                    .chunkStrategy("recursive-character-sentence-overlap-v2")
                     .chunkIndex(globalChunkIndex)
                     .documentId(documentId)
                     .groupId(groupId)
@@ -171,8 +173,7 @@ public class ChunkingService {
             String previous = chunks.get(i - 1);
             String current = chunks.get(i);
 
-            int overlapStart = Math.max(0, previous.length() - overlapChars);
-            String overlapContext = previous.substring(overlapStart).trim();
+            String overlapContext = extractSentenceOverlap(previous);
 
             String chunkWithOverlap = StringUtils.hasText(overlapContext)
                 ? overlapContext + " " + current
@@ -182,6 +183,44 @@ public class ChunkingService {
         }
 
         return overlapped;
+    }
+
+    /**
+     * Walks backward from the end of {@code previous} accumulating whole sentences until the
+     * overlap budget is reached, so the overlap boundary always falls on a sentence break
+     * instead of an arbitrary character offset. The last sentence is always included in full
+     * even if it alone exceeds the budget, since a partial sentence loses more meaning than an
+     * oversized one.
+     */
+    private String extractSentenceOverlap(String previous) {
+        List<String> sentences = splitIntoSentences(previous);
+        if (sentences.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder overlap = new StringBuilder();
+        for (int i = sentences.size() - 1; i >= 0; i--) {
+            String sentence = sentences.get(i);
+            if (overlap.length() > 0 && sentence.length() + overlap.length() > overlapChars) {
+                break;
+            }
+            overlap.insert(0, sentence);
+        }
+
+        return overlap.toString().trim();
+    }
+
+    private List<String> splitIntoSentences(String text) {
+        List<String> sentences = new ArrayList<>();
+        BreakIterator iterator = BreakIterator.getSentenceInstance(Locale.US);
+        iterator.setText(text);
+
+        int start = iterator.first();
+        for (int end = iterator.next(); end != BreakIterator.DONE; start = end, end = iterator.next()) {
+            sentences.add(text.substring(start, end));
+        }
+
+        return sentences;
     }
 
     private String clean(String text) {
