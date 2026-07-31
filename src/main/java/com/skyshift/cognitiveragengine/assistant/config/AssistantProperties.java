@@ -13,4 +13,5 @@ public class AssistantProperties {
     private int topKDefault = 5;
     private int maxToolLoops = 10;
     private long toolTimeoutMs = 30000;
+    private int maxHistoryTurns = 10;
 }

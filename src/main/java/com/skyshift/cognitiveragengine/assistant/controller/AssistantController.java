@@ -24,6 +24,6 @@ public class AssistantController {
     @PostMapping("/ask")
     public AssistantResponse ask(@Valid @RequestBody AssistantRequest request) {
         log.info("Received assistant request: groupId={}", request.groupId());
-        return assistantService.ask(request.message(), request.groupId());
+        return assistantService.ask(request.message(), request.groupId(), request.conversationId());
     }
 }

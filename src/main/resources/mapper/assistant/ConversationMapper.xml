@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.assistant.mapper.ConversationMapper">
+
+    <insert id="insert" parameterType="com.skyshift.cognitiveragengine.assistant.model.entity.AssistantConversationEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO assistant_conversations (
+            group_id,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{groupId},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="selectByIdAndGroupId" resultType="com.skyshift.cognitiveragengine.assistant.model.entity.AssistantConversationEntity">
+        SELECT
+            id,
+            group_id,
+            created_at,
+            updated_at
+        FROM assistant_conversations
+        WHERE id = #{conversationId}
+        AND group_id = #{groupId}
+    </select>
+</mapper>

@@ -8,5 +8,6 @@ public record AssistantResponse(
         boolean answered,
         String reasonMessage,
         List<SourceChunk> sources,
-        String answer
+        String answer,
+        Long conversationId
 ) {}

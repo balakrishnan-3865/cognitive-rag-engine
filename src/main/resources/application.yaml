@@ -114,13 +114,16 @@ hybrid-search:
   # Per-source candidate depth fetched from each retriever before RRF fusion and truncation to qa.top-k-default
   candidate-pool-size: ${HYBRID_SEARCH_CANDIDATE_POOL_SIZE:30}
 
-# Assistant Configuration - ReAct agent with RAG exposed as a tool (no memory/persistence yet)
+# Assistant Configuration - ReAct agent with RAG exposed as a tool
 assistant:
   top-k-default: ${ASSISTANT_TOP_K_DEFAULT:5}
   # Caps ReactAgent's CompileConfig.recursionLimit (defaults to Integer.MAX_VALUE upstream) - bounds
   # the total think-act-observe loop so a non-converging model can't spin indefinitely on the LLM bill.
   max-tool-loops: ${ASSISTANT_MAX_TOOL_LOOPS:10}
   tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS:30000}
+  # Most recent user/assistant turns kept verbatim in ConversationService.loadHistory; older turns are
+  # dropped (phase 1 has no summarization - see docs/assistant-memory-phase2-summarization.md).
+  max-history-turns: ${ASSISTANT_MAX_HISTORY_TURNS:10}
 
 # Observability - traces (ChatClient/Advisor/VectorStore/EmbeddingModel spans) export to Langfuse
 # via OTLP; operational + rag.* metrics export to Prometheus/Grafana (deploy/observability) via

@@ -120,3 +120,17 @@ For new entities:
 3. Generate: Entity + Flyway V[N] + MyBatis Mapper interface + XML
 4. /review + test
 5. /compact focus on [new entity]
+
+## 11. Project Documentation
+
+### ReactAgent Framework Reference
+
+For all ReactAgent related tasks, refer to the comprehensive reference:
+→ `REACTAGENT_REFERENCE.md` (in project root)
+
+#### Quick Lookup Topics:
+- Agent Creation → Section "Core Building Blocks"
+- Tool Definition (@Tool) → Section "Tool Definition"
+- Memory & ThreadId → Section "Execution & Memory"
+- Limits & Safety → Section "Limits & Safety"
+- Citations Pattern → Section "Advanced Patterns"

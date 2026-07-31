@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.assistant.mapper.ConversationMessageMapper">
+
+    <insert id="insert" parameterType="com.skyshift.cognitiveragengine.assistant.model.entity.ConversationMessageEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO assistant_messages (
+            conversation_id,
+            sequence_number,
+            role,
+            content,
+            tool_name,
+            created_at
+        )
+        SELECT
+            #{conversationId},
+            COALESCE(MAX(sequence_number), 0) + 1,
+            #{role},
+            #{content},
+            #{toolName},
+            #{createdAt}
+        FROM assistant_messages
+        WHERE conversation_id = #{conversationId}
+    </insert>
+
+    <select id="selectRecentByConversationId" resultType="com.skyshift.cognitiveragengine.assistant.model.entity.ConversationMessageEntity">
+        SELECT * FROM (
+            SELECT
+                id,
+                conversation_id,
+                sequence_number,
+                role,
+                content,
+                tool_name,
+                created_at
+            FROM assistant_messages
+            WHERE conversation_id = #{conversationId}
+            ORDER BY sequence_number DESC
+            LIMIT #{limit}
+        ) recent
+        ORDER BY sequence_number ASC
+    </select>
+</mapper>

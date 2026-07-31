@@ -2,13 +2,18 @@ package com.skyshift.cognitiveragengine.assistant.service;
 
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.skyshift.cognitiveragengine.assistant.agent.AssistantReactAgentFactory;
+import com.skyshift.cognitiveragengine.assistant.config.AssistantProperties;
 import com.skyshift.cognitiveragengine.assistant.model.dto.AssistantResponse;
+import com.skyshift.cognitiveragengine.assistant.model.enums.MessageRole;
 import com.skyshift.cognitiveragengine.qa.model.SourceChunk;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -18,27 +23,50 @@ import java.util.stream.Collectors;
 @Service
 public class AssistantService {
 
-    private final AssistantReactAgentFactory assistantReactAgentFactory;
+    private static final String KNOWLEDGE_BASE_TOOL_NAME = "searchKnowledgeBase";
 
-    public AssistantService(AssistantReactAgentFactory assistantReactAgentFactory) {
+    private final AssistantReactAgentFactory assistantReactAgentFactory;
+    private final ConversationService conversationService;
+    private final AssistantProperties assistantProperties;
+
+    public AssistantService(
+            AssistantReactAgentFactory assistantReactAgentFactory,
+            ConversationService conversationService,
+            AssistantProperties assistantProperties
+    ) {
         this.assistantReactAgentFactory = assistantReactAgentFactory;
+        this.conversationService = conversationService;
+        this.assistantProperties = assistantProperties;
     }
 
-    public AssistantResponse ask(String message, Long groupId) {
+    public AssistantResponse ask(String message, Long groupId, Long conversationId) {
         log.info("Processing assistant message: groupId={}", groupId);
 
+        Long resolvedConversationId = conversationService.getOrCreateConversation(conversationId, groupId);
         List<Document> retrievedDocuments = new CopyOnWriteArrayList<>();
 
         try {
+            List<Message> fullMessages = new ArrayList<>(conversationService.loadHistory(
+                    resolvedConversationId, assistantProperties.getMaxHistoryTurns()));
+            fullMessages.add(new UserMessage(message));
+
             ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, retrievedDocuments);
-            AssistantMessage assistantMessage = reactAgent.call(message);
+            AssistantMessage assistantMessage = reactAgent.call(fullMessages);
+
+            conversationService.appendMessage(resolvedConversationId, MessageRole.USER, message, null);
+            if (!retrievedDocuments.isEmpty()) {
+                conversationService.appendMessage(resolvedConversationId, MessageRole.TOOL,
+                        "Searched knowledge base, retrieved %d chunk(s).".formatted(retrievedDocuments.size()),
+                        KNOWLEDGE_BASE_TOOL_NAME);
+            }
+            conversationService.appendMessage(resolvedConversationId, MessageRole.ASSISTANT, assistantMessage.getText(), null);
 
             log.info("Assistant message answered successfully");
 
-            return new AssistantResponse(true, "", convertToSourceChunks(retrievedDocuments), assistantMessage.getText());
+            return new AssistantResponse(true, "", convertToSourceChunks(retrievedDocuments), assistantMessage.getText(), resolvedConversationId);
         } catch (Exception e) {
             log.error("Error processing assistant message: groupId={}: {}", groupId, e.getMessage(), e);
-            return new AssistantResponse(false, "Failed to process message: " + e.getMessage(), Collections.emptyList(), "");
+            return new AssistantResponse(false, "Failed to process message: " + e.getMessage(), Collections.emptyList(), "", resolvedConversationId);
         }
     }
 
