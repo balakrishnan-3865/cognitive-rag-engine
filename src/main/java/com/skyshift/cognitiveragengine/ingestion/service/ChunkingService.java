@@ -24,6 +24,19 @@ public class ChunkingService {
     private static final Pattern MULTIPLE_SPACES = Pattern.compile(" {2,}");
     private static final Pattern MULTIPLE_NEWLINES = Pattern.compile("\n{3,}");
 
+    // A line ending in a letter followed by a hyphen, immediately followed by a
+    // lowercase-starting line, is treated as a word broken across the PDF's line
+    // wrap (e.g. "In-\npatient") rather than a genuine hyphenated break.
+    private static final Pattern ENDS_WITH_WRAP_HYPHEN = Pattern.compile(".*\\p{L}-$");
+    // A line ending in sentence-terminal punctuation marks a real sentence/clause
+    // boundary, so the newline after it is preserved instead of being unwrapped.
+    private static final Pattern ENDS_WITH_SENTENCE_TERMINATOR = Pattern.compile(".*[.!?:;][\"')\\]]?$");
+    // List/enumeration markers ("a)", "ii)", "3.") start a new logical line even
+    // when the previous line has no terminal punctuation, so they are never
+    // joined to the line above them.
+    private static final Pattern LIST_MARKER_START =
+        Pattern.compile("^(\\(?[a-zA-Z]\\)|\\(?[ivxlcdmIVXLCDM]{1,6}\\)|\\(?\\d{1,3}[.)])\\s+.*");
+
     private final int maxChunkSizeChars;
     private final int overlapChars;
 
@@ -234,6 +247,8 @@ public class ChunkingService {
 
         cleaned = CONTROL_CHARACTERS.matcher(cleaned).replaceAll("");
 
+        cleaned = unwrapLines(cleaned);
+
         cleaned = MULTIPLE_SPACES.matcher(cleaned).replaceAll(" ");
 
         cleaned = MULTIPLE_NEWLINES.matcher(cleaned).replaceAll("\n\n");
@@ -241,6 +256,53 @@ public class ChunkingService {
         cleaned = cleaned.strip();
 
         return cleaned;
+    }
+
+    /**
+     * Rejoins lines that PDF text extraction broke purely for page-width word-wrap, while
+     * preserving newlines that mark a real sentence, clause, or list-item boundary. A line is
+     * merged into the next when it has no terminal punctuation and the next line isn't a list
+     * marker; a trailing wrap-hyphen ("In-\npatient") is removed and the two lines joined
+     * directly instead of with a space.
+     */
+    private String unwrapLines(String text) {
+        String[] rawLines = text.split("\n", -1);
+        StringBuilder result = new StringBuilder();
+        String pendingLine = null;
+
+        for (String rawLine : rawLines) {
+            String line = rawLine.strip();
+
+            if (line.isEmpty()) {
+                if (pendingLine != null) {
+                    result.append(pendingLine).append('\n');
+                    pendingLine = null;
+                }
+                result.append('\n');
+                continue;
+            }
+
+            if (pendingLine == null) {
+                pendingLine = line;
+                continue;
+            }
+
+            if (ENDS_WITH_WRAP_HYPHEN.matcher(pendingLine).matches() && Character.isLowerCase(line.charAt(0))) {
+                pendingLine = pendingLine.substring(0, pendingLine.length() - 1) + line;
+            } else if (!ENDS_WITH_SENTENCE_TERMINATOR.matcher(pendingLine).matches()
+                    && !LIST_MARKER_START.matcher(line).matches()) {
+                pendingLine = pendingLine + " " + line;
+            } else {
+                result.append(pendingLine).append('\n');
+                pendingLine = line;
+            }
+        }
+
+        if (pendingLine != null) {
+            result.append(pendingLine);
+        }
+
+        return result.toString();
     }
 
     private int estimateTokenCount(String text) {
