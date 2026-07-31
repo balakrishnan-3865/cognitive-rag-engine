@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.ingestion.parser;
 
+import com.skyshift.cognitiveragengine.common.exception.ParseException;
 import org.springframework.ai.document.Document;
 
 import java.io.InputStream;

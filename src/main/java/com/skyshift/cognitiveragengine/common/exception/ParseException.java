@@ -1,4 +1,4 @@
-package com.skyshift.cognitiveragengine.ingestion.parser;
+package com.skyshift.cognitiveragengine.common.exception;
 
 public class ParseException extends Exception {
 

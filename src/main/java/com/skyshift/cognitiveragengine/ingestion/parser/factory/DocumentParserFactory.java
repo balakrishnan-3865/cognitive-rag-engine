@@ -1,6 +1,7 @@
-package com.skyshift.cognitiveragengine.ingestion.parser;
+package com.skyshift.cognitiveragengine.ingestion.parser.factory;
 
 import com.skyshift.cognitiveragengine.common.exception.BusinessException;
+import com.skyshift.cognitiveragengine.ingestion.parser.DocumentParser;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;

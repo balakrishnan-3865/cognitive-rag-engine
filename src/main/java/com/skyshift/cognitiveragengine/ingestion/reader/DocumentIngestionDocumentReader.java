@@ -1,9 +1,8 @@
 package com.skyshift.cognitiveragengine.ingestion.reader;
 
 import com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity;
-import com.skyshift.cognitiveragengine.ingestion.parser.DocumentParserFactory;
+import com.skyshift.cognitiveragengine.ingestion.parser.factory.DocumentParserFactory;
 import com.skyshift.cognitiveragengine.ingestion.parser.DocumentParser;
-import com.skyshift.cognitiveragengine.ingestion.parser.ParseException;
 import com.skyshift.cognitiveragengine.storage.service.ObjectStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;

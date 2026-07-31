@@ -6,7 +6,7 @@ import com.skyshift.cognitiveragengine.ingestion.event.DocumentChunksCreatedEven
 import com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity;
 import com.skyshift.cognitiveragengine.ingestion.model.enums.DocumentStatus;
 import com.skyshift.cognitiveragengine.ingestion.reader.DocumentIngestionDocumentReader;
-import com.skyshift.cognitiveragengine.ingestion.parser.DocumentParserFactory;
+import com.skyshift.cognitiveragengine.ingestion.parser.factory.DocumentParserFactory;
 import com.skyshift.cognitiveragengine.storage.service.ObjectStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;

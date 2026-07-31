@@ -1,5 +1,7 @@
-package com.skyshift.cognitiveragengine.ingestion.parser;
+package com.skyshift.cognitiveragengine.ingestion.parser.strategy;
 
+import com.skyshift.cognitiveragengine.ingestion.parser.DocumentParser;
+import com.skyshift.cognitiveragengine.common.exception.ParseException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
