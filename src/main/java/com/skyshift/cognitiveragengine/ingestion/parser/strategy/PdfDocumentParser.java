@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.ingestion.parser.strategy;
 
 import com.skyshift.cognitiveragengine.ingestion.parser.DocumentParser;
+import com.skyshift.cognitiveragengine.ingestion.transformer.HeaderFooterCleanupTransformer;
 import com.skyshift.cognitiveragengine.common.exception.ParseException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
@@ -20,6 +21,12 @@ import java.util.List;
 @Slf4j
 @Component
 public class PdfDocumentParser implements DocumentParser {
+
+    private final HeaderFooterCleanupTransformer headerFooterCleanupTransformer;
+
+    public PdfDocumentParser(HeaderFooterCleanupTransformer headerFooterCleanupTransformer) {
+        this.headerFooterCleanupTransformer = headerFooterCleanupTransformer;
+    }
 
     @Override
     public List<String> getSupportedExtensions() {
@@ -81,7 +88,7 @@ public class PdfDocumentParser implements DocumentParser {
 
                 log.info("Successfully parsed PDF: {} pages, {} non-empty pages extracted",
                         numberOfPages, documents.size());
-                return documents;
+                return headerFooterCleanupTransformer.apply(documents);
             }
         } catch (IOException e) {
             log.error("IO error while parsing PDF", e);
