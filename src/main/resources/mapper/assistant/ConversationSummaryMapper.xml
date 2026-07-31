@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.assistant.mapper.ConversationSummaryMapper">
+
+    <select id="selectByConversationId" resultType="com.skyshift.cognitiveragengine.assistant.model.entity.AssistantConversationSummaryEntity">
+        SELECT
+            conversation_id,
+            summary_text,
+            summarized_through_sequence_number,
+            updated_at
+        FROM assistant_conversation_summaries
+        WHERE conversation_id = #{conversationId}
+    </select>
+
+    <insert id="upsert" parameterType="com.skyshift.cognitiveragengine.assistant.model.entity.AssistantConversationSummaryEntity">
+        INSERT INTO assistant_conversation_summaries (
+            conversation_id,
+            summary_text,
+            summarized_through_sequence_number,
+            updated_at
+        ) VALUES (
+            #{conversationId},
+            #{summaryText},
+            #{summarizedThroughSequenceNumber},
+            #{updatedAt}
+        )
+        ON CONFLICT (conversation_id) DO UPDATE SET
+            summary_text = excluded.summary_text,
+            summarized_through_sequence_number = excluded.summarized_through_sequence_number,
+            updated_at = excluded.updated_at
+    </insert>
+</mapper>

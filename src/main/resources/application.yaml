@@ -122,8 +122,11 @@ assistant:
   max-tool-loops: ${ASSISTANT_MAX_TOOL_LOOPS:10}
   tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS:30000}
   # Most recent user/assistant turns kept verbatim in ConversationService.loadHistory; older turns are
-  # dropped (phase 1 has no summarization - see docs/assistant-memory-phase2-summarization.md).
+  # folded into a rolling summary once the trigger below is crossed (see docs/assistant-memory-phase2-summarization.md).
   max-history-turns: ${ASSISTANT_MAX_HISTORY_TURNS:10}
+  # Unsummarized message count (must exceed max-history-turns) that triggers folding older turns into
+  # the rolling conversation summary.
+  summarization-trigger-message-count: ${ASSISTANT_SUMMARIZATION_TRIGGER_MESSAGE_COUNT:30}
 
 # Observability - traces (ChatClient/Advisor/VectorStore/EmbeddingModel spans) export to Langfuse
 # via OTLP; operational + rag.* metrics export to Prometheus/Grafana (deploy/observability) via

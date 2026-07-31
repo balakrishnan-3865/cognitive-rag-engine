@@ -14,4 +14,5 @@ public class AssistantProperties {
     private int maxToolLoops = 10;
     private long toolTimeoutMs = 30000;
     private int maxHistoryTurns = 10;
+    private int summarizationTriggerMessageCount = 30;
 }

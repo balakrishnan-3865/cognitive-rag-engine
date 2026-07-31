@@ -27,15 +27,18 @@ public class AssistantService {
 
     private final AssistantReactAgentFactory assistantReactAgentFactory;
     private final ConversationService conversationService;
+    private final ConversationSummaryService conversationSummaryService;
     private final AssistantProperties assistantProperties;
 
     public AssistantService(
             AssistantReactAgentFactory assistantReactAgentFactory,
             ConversationService conversationService,
+            ConversationSummaryService conversationSummaryService,
             AssistantProperties assistantProperties
     ) {
         this.assistantReactAgentFactory = assistantReactAgentFactory;
         this.conversationService = conversationService;
+        this.conversationSummaryService = conversationSummaryService;
         this.assistantProperties = assistantProperties;
     }
 
@@ -60,6 +63,7 @@ public class AssistantService {
                         KNOWLEDGE_BASE_TOOL_NAME);
             }
             conversationService.appendMessage(resolvedConversationId, MessageRole.ASSISTANT, assistantMessage.getText(), null);
+            conversationSummaryService.maybeSummarize(resolvedConversationId);
 
             log.info("Assistant message answered successfully");
 

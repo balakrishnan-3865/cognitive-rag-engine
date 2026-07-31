@@ -16,4 +16,11 @@ public interface ConversationMessageMapper {
     List<ConversationMessageEntity> selectRecentByConversationId(
         @Param("conversationId") Long conversationId,
         @Param("limit") int limit);
+
+    /**
+     * Returns messages with sequence_number greater than {@code afterSequenceNumber}, oldest first.
+     */
+    List<ConversationMessageEntity> selectAfterSequenceNumber(
+        @Param("conversationId") Long conversationId,
+        @Param("afterSequenceNumber") int afterSequenceNumber);
 }

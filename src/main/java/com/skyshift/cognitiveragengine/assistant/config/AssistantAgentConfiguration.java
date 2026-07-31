@@ -14,4 +14,11 @@ public class AssistantAgentConfiguration {
                 .resource(new ClassPathResource("prompts/assistant/react-instruction.st"))
                 .build();
     }
+
+    @Bean("assistantConversationSummaryTemplate")
+    public PromptTemplate assistantConversationSummaryTemplate() {
+        return PromptTemplate.builder()
+                .resource(new ClassPathResource("prompts/assistant/conversation-summary.st"))
+                .build();
+    }
 }

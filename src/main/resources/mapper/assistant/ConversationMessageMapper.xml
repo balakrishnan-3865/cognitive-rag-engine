@@ -40,4 +40,19 @@
         ) recent
         ORDER BY sequence_number ASC
     </select>
+
+    <select id="selectAfterSequenceNumber" resultType="com.skyshift.cognitiveragengine.assistant.model.entity.ConversationMessageEntity">
+        SELECT
+            id,
+            conversation_id,
+            sequence_number,
+            role,
+            content,
+            tool_name,
+            created_at
+        FROM assistant_messages
+        WHERE conversation_id = #{conversationId}
+        AND sequence_number > #{afterSequenceNumber}
+        ORDER BY sequence_number ASC
+    </select>
 </mapper>
