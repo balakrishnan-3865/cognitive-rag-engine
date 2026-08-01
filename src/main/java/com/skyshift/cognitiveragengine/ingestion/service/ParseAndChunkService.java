@@ -73,7 +73,7 @@ public class ParseAndChunkService {
             log.info("Created {} chunks from {} sections", chunks.size(), parsedDocuments.size());
 
             int insertedCount = documentChunkBatchService.batchInsertWithIdempotency(
-                documentId, groupId, chunks);
+                documentId, chunks);
             log.info("Inserted {} chunks into database", insertedCount);
 
             log.info("Parse and chunk complete for documentId={}, publishing vector ingestion event", documentId);
