@@ -1,7 +1,9 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
+import com.skyshift.cognitiveragengine.qa.exception.RetrievalException;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
+import com.skyshift.cognitiveragengine.qa.model.RetrievalResult;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.VectorSearchService;
@@ -20,7 +22,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -36,7 +37,10 @@ public class HybridChunkRetrievalService {
     private final DistributionSummary denseHitsSummary;
     private final DistributionSummary sparseHitsSummary;
     private final DistributionSummary fusedCountSummary;
-    private final Counter sparseDegradedCounter;
+    private final Counter denseRetrievalFailures;
+    private final Counter sparseRetrievalFailures;
+    private final Counter hybridRetrievalSuccess;
+    private final Counter degradedRetrievalSuccess;
 
     public HybridChunkRetrievalService(
             VectorSearchService vectorSearchService,
@@ -50,35 +54,111 @@ public class HybridChunkRetrievalService {
         this.retrievalProperties = retrievalProperties;
         this.observationRegistry = observationRegistry;
         this.denseHitsSummary = DistributionSummary.builder("rag.retrieval.dense.hits")
-                .description("Dense (pgvector) candidate hits returned before RRF fusion")
+                .description("Dense (pgvector) search result hit count")
                 .register(meterRegistry);
         this.sparseHitsSummary = DistributionSummary.builder("rag.retrieval.sparse.hits")
-                .description("Sparse (Elasticsearch) candidate hits returned before RRF fusion")
+                .description("Sparse (Elasticsearch) search result hit count")
                 .register(meterRegistry);
         this.fusedCountSummary = DistributionSummary.builder("rag.retrieval.fused.count")
-                .description("Distinct chunks remaining after RRF fusion, before topK truncation")
+                .description("Distinct chunks remaining after RRF fusion")
                 .register(meterRegistry);
-        this.sparseDegradedCounter = Counter.builder("rag.retrieval.sparse.degraded")
-                .description("Requests where sparse (Elasticsearch) search failed and fusion degraded to dense-only")
+        this.denseRetrievalFailures = Counter.builder("rag.retrieval.dense.failures")
+                .description("Dense (pgvector) search failed")
+                .register(meterRegistry);
+        this.sparseRetrievalFailures = Counter.builder("rag.retrieval.sparse.failures")
+                .description("Sparse (Elasticsearch) search failed")
+                .register(meterRegistry);
+        this.hybridRetrievalSuccess = Counter.builder("rag.retrieval.success")
+                .tag("outcome", "hybrid")
+                .description("Both sources succeeded - hybrid ranking used")
+                .register(meterRegistry);
+        this.degradedRetrievalSuccess = Counter.builder("rag.retrieval.success")
+                .tag("outcome", "degraded")
+                .description("One source succeeded - degraded to single source")
                 .register(meterRegistry);
     }
 
+    /**
+     * Orchestrates hybrid retrieval: attempts both dense and sparse searches independently,
+     * then uses available results based on success state.
+     *
+     * Success cases:
+     * - Both succeeded → fuse with RRF (best quality, "hybrid")
+     * - Dense only → use dense results ("dense_only")
+     * - Sparse only → use sparse results ("sparse_only")
+     *
+     * Failure case:
+     * - Both failed → throw RetrievalException (data integrity issue)
+     */
     public DocumentBundle retrieveRelevantChunks(String query, Long groupId, int topK) {
         Observation observation = Observation.createNotStarted(OBSERVATION_NAME, observationRegistry)
                 .lowCardinalityKeyValue("groupId", String.valueOf(groupId));
 
         return observation.observe(() -> {
-            int denseCandidatePoolSize = retrievalProperties.getDense().getTopK();
+            RetrievalResult denseResult = attemptDenseSearch(query, groupId);
+            RetrievalResult sparseResult = attemptSparseSearch(query, groupId);
 
-            List<VectorHit> denseHits = vectorSearchService.search(query, groupId, denseCandidatePoolSize);
-            log.debug("Retrieved {} dense (vector) candidates for fusion", denseHits.size());
+            DocumentBundle bundle = handleRetrievalOutcome(
+                    denseResult, sparseResult, query, groupId, topK, observation);
+
+            return bundle;
+        });
+    }
+
+    /**
+     * Attempts dense (pgvector) retrieval independently.
+     * Returns success with results or failure with exception, never throws.
+     */
+    private RetrievalResult attemptDenseSearch(String query, Long groupId) {
+        try {
+            int topK = retrievalProperties.getDense().getTopK();
+            List<VectorHit> results = vectorSearchService.search(query, groupId, topK);
+            log.debug("Dense search succeeded: {} hits for groupId={}", results.size(), groupId);
+            return RetrievalResult.success("dense", results);
+        } catch (Exception e) {
+            log.error("Dense search failed for groupId={}: {}", groupId, e.getMessage(), e);
+            return RetrievalResult.failure("dense", e);
+        }
+    }
+
+    /**
+     * Attempts sparse (Elasticsearch) retrieval independently.
+     * Returns success with results or failure with exception, never throws.
+     */
+    private RetrievalResult attemptSparseSearch(String query, Long groupId) {
+        try {
+            int topK = retrievalProperties.getSparse().getTopK();
+            List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks(query, groupId, topK);
+            log.debug("Sparse search succeeded: {} hits for groupId={}", results.size(), groupId);
+            return RetrievalResult.success("sparse", results);
+        } catch (Exception e) {
+            log.error("Sparse search failed for groupId={}: {}", groupId, e.getMessage(), e);
+            return RetrievalResult.failure("sparse", e);
+        }
+    }
+
+    /**
+     * Handles retrieval outcomes based on which sources succeeded.
+     *
+     * Uses available data and fails only when both sources failed (data integrity issue).
+     * No results (empty list) is NOT an error - it's a valid outcome.
+     */
+    private DocumentBundle handleRetrievalOutcome(
+            RetrievalResult denseResult,
+            RetrievalResult sparseResult,
+            String query,
+            Long groupId,
+            int topK,
+            Observation observation) {
+
+        // CASE 1: Both succeeded → optimal path (hybrid ranking with RRF)
+        if (denseResult.isSuccess() && sparseResult.isSuccess()) {
+            log.info("Hybrid retrieval successful: dense={} hits, sparse={} hits, groupId={}",
+                    denseResult.getHitCount(), sparseResult.getHitCount(), groupId);
+
+            List<VectorHit> denseHits = (List<VectorHit>) denseResult.getResults();
+            List<KeywordHit> sparseHits = (List<KeywordHit>) sparseResult.getResults();
             denseHitsSummary.record(denseHits.size());
-
-            int sparseCandidatePoolSize = retrievalProperties.getSparse().getTopK();
-
-            AtomicBoolean sparseDegraded = new AtomicBoolean(false);
-            List<KeywordHit> sparseHits = searchSparseChunks(query, groupId, sparseCandidatePoolSize, sparseDegraded);
-            log.debug("Retrieved {} sparse (keyword) candidates for fusion", sparseHits.size());
             sparseHitsSummary.record(sparseHits.size());
 
             int rrfK = retrievalProperties.getFusion().getRrfK();
@@ -90,47 +170,90 @@ public class HybridChunkRetrievalService {
             List<Document> documents = fused.stream()
                     .sorted(Comparator.comparingDouble(RankedChunk::rrfScore).reversed())
                     .limit(topK)
-                    .map(this::toDocument)
+                    .map(this::rankedChunkToDocument)
                     .collect(Collectors.toList());
 
-            // groupId/sparseDegraded are bounded-cardinality and become metric tags on the
-            // rag.hybrid_retrieval timer; per-chunk detail is trace-only (unbounded cardinality
-            // would blow up the metric backend if used as a tag).
             observation
-                    .lowCardinalityKeyValue("sparseDegraded", String.valueOf(sparseDegraded.get()))
-                    .highCardinalityKeyValue("denseHitCount", String.valueOf(denseHits.size()))
-                    .highCardinalityKeyValue("sparseHitCount", String.valueOf(sparseHits.size()))
-                    .highCardinalityKeyValue("fusedChunkIds", fused.stream()
-                            .map(chunk -> chunk.chunkId() + ":" + String.format("%.4f", chunk.rrfScore()))
-                            .collect(Collectors.joining(",")));
+                    .lowCardinalityKeyValue("retrieval_outcome", "success")
+                    .lowCardinalityKeyValue("sources_available", "both")
+                    .lowCardinalityKeyValue("dense_hit_count", bucketize(denseHits.size()))
+                    .lowCardinalityKeyValue("sparse_hit_count", bucketize(sparseHits.size()));
 
+            hybridRetrievalSuccess.increment();
             return new DocumentBundle(documents);
-        });
-    }
-
-    /**
-     * Elasticsearch is the secondary retriever here (pgvector remains primary, matching the
-     * eventually-consistent treatment of ES elsewhere in the ingestion flow). A sparse-search
-     * failure degrades to dense-only fusion instead of failing the whole QA request.
-     */
-    private List<KeywordHit> searchSparseChunks(String query, Long groupId, int candidatePoolSize, AtomicBoolean sparseDegraded) {
-        try {
-            return elasticsearchChunkIndexService.searchChunks(query, groupId, candidatePoolSize);
-        } catch (Exception e) {
-            log.error("Sparse (Elasticsearch) search failed, degrading to dense-only results: {}", e.getMessage(), e);
-            sparseDegradedCounter.increment();
-            sparseDegraded.set(true);
-            return List.of();
         }
+
+        // CASE 2: Dense succeeded, Sparse failed → use dense only
+        if (denseResult.isSuccess() && !sparseResult.isSuccess()) {
+            log.warn("Sparse search failed, using dense-only results: groupId={}, error={}",
+                    groupId, sparseResult.getError().getMessage());
+
+            List<VectorHit> denseHits = (List<VectorHit>) denseResult.getResults();
+            denseHitsSummary.record(denseHits.size());
+
+            List<Document> documents = denseHits.stream()
+                    .sorted(Comparator.comparingDouble(VectorHit::score).reversed())
+                    .limit(topK)
+                    .map(this::vectorHitToDocument)
+                    .collect(Collectors.toList());
+
+            observation
+                    .lowCardinalityKeyValue("retrieval_outcome", "degraded")
+                    .lowCardinalityKeyValue("sources_available", "dense_only")
+                    .lowCardinalityKeyValue("dense_hit_count", bucketize(denseHits.size()));
+
+            sparseRetrievalFailures.increment();
+            degradedRetrievalSuccess.increment();
+            return new DocumentBundle(documents);
+        }
+
+        // CASE 3: Sparse succeeded, Dense failed → use sparse only (fallback)
+        if (!denseResult.isSuccess() && sparseResult.isSuccess()) {
+            log.warn("Dense search failed, using sparse-only results: groupId={}, error={}",
+                    groupId, denseResult.getError().getMessage());
+
+            List<KeywordHit> sparseHits = (List<KeywordHit>) sparseResult.getResults();
+            sparseHitsSummary.record(sparseHits.size());
+
+            List<Document> documents = sparseHits.stream()
+                    .sorted(Comparator.comparingDouble(KeywordHit::normalizedScore).reversed())
+                    .limit(topK)
+                    .map(this::keywordHitToDocument)
+                    .collect(Collectors.toList());
+
+            observation
+                    .lowCardinalityKeyValue("retrieval_outcome", "degraded")
+                    .lowCardinalityKeyValue("sources_available", "sparse_only")
+                    .lowCardinalityKeyValue("sparse_hit_count", bucketize(sparseHits.size()));
+
+            denseRetrievalFailures.increment();
+            degradedRetrievalSuccess.increment();
+            return new DocumentBundle(documents);
+        }
+
+        // CASE 4: Both failed → throw exception (data integrity issue)
+        log.error("Both dense and sparse searches failed for groupId={}: dense={}, sparse={}",
+                groupId, denseResult.getError().getMessage(), sparseResult.getError().getMessage());
+
+        observation
+                .lowCardinalityKeyValue("retrieval_outcome", "failed")
+                .lowCardinalityKeyValue("sources_available", "none");
+
+        throw new RetrievalException(
+                denseResult.getError(),
+                sparseResult.getError()
+        );
     }
 
     /**
-     * chunkId is the fusion key: it is the one identifier populated identically by both
-     * VectorSearchService and ElasticsearchChunkIndexService for the same source chunk,
-     * unlike documentId (many chunks per document) or the vector store's own document id
-     * (a store-generated UUID with no ES equivalent).
+     * Fuses dense and sparse ranked lists using Reciprocal Rank Fusion (RRF).
+     * Combines rankings from both sources into a single unified score.
      */
-    private List<RankedChunk> fuseWithReciprocalRankFusion(List<VectorHit> denseHits, List<KeywordHit> sparseHits, int rrfK) {
+    private List<RankedChunk> fuseWithReciprocalRankFusion(
+            List<VectorHit> denseHits,
+            List<KeywordHit> sparseHits,
+            int rrfK) {
+
         Map<Long, RankedChunk> fusedByChunkId = new LinkedHashMap<>();
 
         for (int rank = 0; rank < denseHits.size(); rank++) {
@@ -150,22 +273,66 @@ public class HybridChunkRetrievalService {
         return new ArrayList<>(fusedByChunkId.values());
     }
 
-    private Document toDocument(RankedChunk chunk) {
+    /**
+     * Converts RankedChunk (from RRF fusion) to Spring AI Document.
+     */
+    private Document rankedChunkToDocument(RankedChunk chunk) {
         return new Document(
                 chunk.content(),
                 Map.of(
                         "chunkId", chunk.chunkId().toString(),
                         "documentId", chunk.documentId().toString(),
                         "chunkNumber", chunk.chunkNumber().toString(),
-                        "similarity", String.valueOf(chunk.rrfScore())
+                        "similarity", String.valueOf(chunk.rrfScore()),
+                        "source", "hybrid"
                 )
         );
     }
 
     /**
-     * Accumulates RRF score contributions for a single chunk across the dense and sparse
-     * ranked lists. "similarity" downstream (see #toDocument) is the fused RRF score, not a
-     * raw cosine/BM25 score - the two are on different scales and RRF is what was ranked by.
+     * Converts VectorHit (dense-only) to Spring AI Document.
+     */
+    private Document vectorHitToDocument(VectorHit hit) {
+        return new Document(
+                hit.content(),
+                Map.of(
+                        "chunkId", hit.chunkId().toString(),
+                        "documentId", hit.documentId().toString(),
+                        "chunkNumber", hit.chunkNumber().toString(),
+                        "similarity", String.valueOf(hit.score()),
+                        "source", "dense"
+                )
+        );
+    }
+
+    /**
+     * Converts KeywordHit (sparse-only) to Spring AI Document.
+     */
+    private Document keywordHitToDocument(KeywordHit hit) {
+        return new Document(
+                hit.chunkText(),
+                Map.of(
+                        "chunkId", hit.chunkId().toString(),
+                        "documentId", hit.documentId().toString(),
+                        "chunkNumber", hit.chunkIndex().toString(),
+                        "similarity", String.valueOf(hit.normalizedScore()),
+                        "source", "sparse"
+                )
+        );
+    }
+
+    /**
+     * Bucketizes hit counts for low-cardinality observation tag.
+     */
+    private String bucketize(int count) {
+        if (count < 10) return "<10";
+        if (count < 50) return "10-50";
+        if (count < 100) return "50-100";
+        return ">100";
+    }
+
+    /**
+     * Accumulates RRF score contributions for a single chunk across dense and sparse rankings.
      */
     private static final class RankedChunk {
         private final Long chunkId;
