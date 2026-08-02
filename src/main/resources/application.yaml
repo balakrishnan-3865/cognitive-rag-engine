@@ -58,6 +58,11 @@ spring:
         max-size: 10
         queue-capacity: 100
       thread-name-prefix: async-task-
+      # Shutdown timeout for bounded async task completion
+      # Prevents indefinite hanging of async tasks in distributed systems
+      shutdown:
+        await-termination: true
+        await-termination-period: ${SPRING_TASK_EXECUTION_SHUTDOWN_PERIOD_SECONDS:300}s  # Default: 5 minutes
 
   # Flyway Database Migration
   flyway:
@@ -193,3 +198,12 @@ resilience4j:
         retryExceptions:
           - java.io.IOException
           - org.elasticsearch.client.ResponseException
+
+# Application Configuration - Custom app-level settings
+app:
+  ingestion:
+    recovery:
+      # Interval (in seconds) between ingestion recovery reconciliation runs
+      # Finds documents stuck in INJECTING state and marks them READY if data is verified
+      # Environment variable: APP_INGESTION_RECOVERY_INTERVAL_SECONDS
+      interval-seconds: ${APP_INGESTION_RECOVERY_INTERVAL_SECONDS:3600}  # Default: 1 hour

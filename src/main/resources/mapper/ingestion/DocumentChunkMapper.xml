@@ -138,4 +138,10 @@
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
+    <select id="countByDocumentId" resultType="int">
+        SELECT COUNT(*)
+        FROM document_chunks
+        WHERE document_id = #{documentId}
+    </select>
+
 </mapper>

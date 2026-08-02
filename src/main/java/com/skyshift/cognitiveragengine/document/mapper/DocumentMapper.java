@@ -4,6 +4,8 @@ import com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface DocumentMapper {
     int insert(DocumentEntity document);
@@ -11,6 +13,8 @@ public interface DocumentMapper {
     DocumentEntity selectByIdAndGroupId(Long documentId, Long groupId);
 
     DocumentEntity selectById(@Param("documentId") Long documentId);
+
+    List<DocumentEntity> findByStatus(@Param("status") String status);
 
     int updateStatus(@Param("documentId") Long documentId, @Param("status") String status);
 

@@ -30,4 +30,6 @@ public interface DocumentChunkMapper {
         @Param("groupId") Long groupId,
         @Param("offset") int offset,
         @Param("limit") int limit);
+
+    int countByDocumentId(@Param("documentId") Long documentId);
 }

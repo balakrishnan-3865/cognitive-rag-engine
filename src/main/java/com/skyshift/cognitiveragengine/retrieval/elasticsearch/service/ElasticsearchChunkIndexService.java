@@ -12,6 +12,7 @@ import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.SparseChunkDto;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -24,16 +25,19 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ElasticsearchChunkIndexService {
 
-    private static final int BATCH_SIZE = 50;
     private final String CHUNK_INDEX_NAME = "rag_sparse_chunks";
     private volatile boolean indexInitialized = false;
     private static final double KEYWORD_SCORE_REFERENCE = 100D;
     private static final String READY_STATUS = "READY";
 
     private final ElasticsearchClient elasticsearchClient;
+    private final int batchSize;
 
-    public ElasticsearchChunkIndexService(ElasticsearchClient elasticsearchClient) {
+    public ElasticsearchChunkIndexService(
+            ElasticsearchClient elasticsearchClient,
+            @Value("${document.ingestion.elasticsearch-batch-size:50}") int batchSize) {
         this.elasticsearchClient = elasticsearchClient;
+        this.batchSize = batchSize;
     }
 
     public void ensureIndexExists() {
@@ -105,16 +109,16 @@ public class ElasticsearchChunkIndexService {
             throw new NoChunksFoundException("Cannot index chunks: no chunks provided for fileName=" + fileName);
         }
 
-        int totalBatches = (chunks.size() + BATCH_SIZE - 1) / BATCH_SIZE;
+        int totalBatches = (chunks.size() + batchSize - 1) / batchSize;
         log.info("Starting Elasticsearch indexing: documentId={}, fileName={}, totalChunks={}, totalBatches={}",
                  documentId, fileName, chunks.size(), totalBatches);
 
         try {
             // Process chunks in batches
-            for (int i = 0; i < chunks.size(); i += BATCH_SIZE) {
-                int end = Math.min(i + BATCH_SIZE, chunks.size());
+            for (int i = 0; i < chunks.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, chunks.size());
                 List<DocumentChunkEntity> batch = chunks.subList(i, end);
-                int batchNum = (i / BATCH_SIZE) + 1;
+                int batchNum = (i / batchSize) + 1;
                 processBulkIndexBatch(fileName, batch, batchNum, totalBatches);
             }
 
@@ -280,6 +284,35 @@ public class ElasticsearchChunkIndexService {
         } catch (IOException e) {
             log.error("Elasticsearch cleanup failed: documentId={}, error={}", documentId, e.getMessage(), e);
             throw new RuntimeException("Failed to delete chunks by documentId: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Counts documents in Elasticsearch for the given documentId.
+     * Used for ingestion recovery reconciliation to verify data integrity.
+     */
+    public int countByDocumentId(Long documentId) throws IOException {
+        ensureIndexExists();
+
+        if (documentId == null) {
+            return 0;
+        }
+
+        try {
+            var countResponse = elasticsearchClient.count(req -> req
+                    .index(CHUNK_INDEX_NAME)
+                    .query(q -> q
+                            .term(t -> t
+                                    .field("documentId")
+                                    .value(v -> v.longValue(documentId))
+                            )
+                    )
+            );
+
+            return (int) countResponse.count();
+        } catch (IOException e) {
+            log.error("Failed to count documents in Elasticsearch for documentId={}: {}", documentId, e.getMessage(), e);
+            throw e;
         }
     }
 
