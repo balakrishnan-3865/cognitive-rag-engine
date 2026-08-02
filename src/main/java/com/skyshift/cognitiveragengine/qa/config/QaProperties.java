@@ -10,9 +10,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "qa")
 public class QaProperties {
-    private int topKDefault = 5;
-    private double similarityThreshold = 0.5;
-    private long chatTimeoutMs = 30000;
-    private double temperature = 0.7;
+    private int topK = 5;
     private int maxTokens = 2000;
+    private double temperature = 0.7;
 }

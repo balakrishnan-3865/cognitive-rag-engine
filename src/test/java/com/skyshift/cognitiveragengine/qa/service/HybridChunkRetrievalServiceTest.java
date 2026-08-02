@@ -1,6 +1,6 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
-import com.skyshift.cognitiveragengine.qa.config.HybridSearchProperties;
+import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
@@ -33,14 +33,15 @@ class HybridChunkRetrievalServiceTest {
     @Mock
     private ElasticsearchChunkIndexService elasticsearchChunkIndexService;
 
-    private HybridSearchProperties hybridSearchProperties;
+    private RetrievalProperties retrievalProperties;
     private HybridChunkRetrievalService service;
 
     @BeforeEach
     void setUp() {
-        hybridSearchProperties = new HybridSearchProperties();
-        hybridSearchProperties.setCandidatePoolSize(CANDIDATE_POOL_SIZE);
-        service = new HybridChunkRetrievalService(vectorSearchService, elasticsearchChunkIndexService, hybridSearchProperties,
+        retrievalProperties = new RetrievalProperties();
+        retrievalProperties.getDense().setTopK(CANDIDATE_POOL_SIZE);
+        retrievalProperties.getFusion().setRrfK(60);
+        service = new HybridChunkRetrievalService(vectorSearchService, elasticsearchChunkIndexService, retrievalProperties,
                 ObservationRegistry.NOOP, new SimpleMeterRegistry());
     }
 

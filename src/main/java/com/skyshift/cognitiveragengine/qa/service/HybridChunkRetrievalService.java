@@ -1,6 +1,6 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
-import com.skyshift.cognitiveragengine.qa.config.HybridSearchProperties;
+import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
@@ -27,12 +27,11 @@ import java.util.stream.Collectors;
 @Service
 public class HybridChunkRetrievalService {
 
-    private static final int RRF_K = 60;
     private static final String OBSERVATION_NAME = "rag.hybrid_retrieval";
 
     private final VectorSearchService vectorSearchService;
     private final ElasticsearchChunkIndexService elasticsearchChunkIndexService;
-    private final HybridSearchProperties hybridSearchProperties;
+    private final RetrievalProperties retrievalProperties;
     private final ObservationRegistry observationRegistry;
     private final DistributionSummary denseHitsSummary;
     private final DistributionSummary sparseHitsSummary;
@@ -42,13 +41,13 @@ public class HybridChunkRetrievalService {
     public HybridChunkRetrievalService(
             VectorSearchService vectorSearchService,
             ElasticsearchChunkIndexService elasticsearchChunkIndexService,
-            HybridSearchProperties hybridSearchProperties,
+            RetrievalProperties retrievalProperties,
             ObservationRegistry observationRegistry,
             MeterRegistry meterRegistry
     ) {
         this.vectorSearchService = vectorSearchService;
         this.elasticsearchChunkIndexService = elasticsearchChunkIndexService;
-        this.hybridSearchProperties = hybridSearchProperties;
+        this.retrievalProperties = retrievalProperties;
         this.observationRegistry = observationRegistry;
         this.denseHitsSummary = DistributionSummary.builder("rag.retrieval.dense.hits")
                 .description("Dense (pgvector) candidate hits returned before RRF fusion")
@@ -69,18 +68,21 @@ public class HybridChunkRetrievalService {
                 .lowCardinalityKeyValue("groupId", String.valueOf(groupId));
 
         return observation.observe(() -> {
-            int candidatePoolSize = hybridSearchProperties.getCandidatePoolSize();
+            int denseCandidatePoolSize = retrievalProperties.getDense().getTopK();
 
-            List<VectorHit> denseHits = vectorSearchService.search(query, groupId, candidatePoolSize);
+            List<VectorHit> denseHits = vectorSearchService.search(query, groupId, denseCandidatePoolSize);
             log.debug("Retrieved {} dense (vector) candidates for fusion", denseHits.size());
             denseHitsSummary.record(denseHits.size());
 
+            int sparseCandidatePoolSize = retrievalProperties.getSparse().getTopK();
+
             AtomicBoolean sparseDegraded = new AtomicBoolean(false);
-            List<KeywordHit> sparseHits = searchSparseChunks(query, groupId, candidatePoolSize, sparseDegraded);
+            List<KeywordHit> sparseHits = searchSparseChunks(query, groupId, sparseCandidatePoolSize, sparseDegraded);
             log.debug("Retrieved {} sparse (keyword) candidates for fusion", sparseHits.size());
             sparseHitsSummary.record(sparseHits.size());
 
-            List<RankedChunk> fused = fuseWithReciprocalRankFusion(denseHits, sparseHits);
+            int rrfK = retrievalProperties.getFusion().getRrfK();
+            List<RankedChunk> fused = fuseWithReciprocalRankFusion(denseHits, sparseHits, rrfK);
             log.info("RRF fusion produced {} distinct chunks from {} dense + {} sparse candidates",
                     fused.size(), denseHits.size(), sparseHits.size());
             fusedCountSummary.record(fused.size());
@@ -128,21 +130,21 @@ public class HybridChunkRetrievalService {
      * unlike documentId (many chunks per document) or the vector store's own document id
      * (a store-generated UUID with no ES equivalent).
      */
-    private List<RankedChunk> fuseWithReciprocalRankFusion(List<VectorHit> denseHits, List<KeywordHit> sparseHits) {
+    private List<RankedChunk> fuseWithReciprocalRankFusion(List<VectorHit> denseHits, List<KeywordHit> sparseHits, int rrfK) {
         Map<Long, RankedChunk> fusedByChunkId = new LinkedHashMap<>();
 
         for (int rank = 0; rank < denseHits.size(); rank++) {
             VectorHit hit = denseHits.get(rank);
             RankedChunk chunk = fusedByChunkId.computeIfAbsent(hit.chunkId(),
                     id -> new RankedChunk(id, hit.documentId(), hit.chunkNumber(), hit.content()));
-            chunk.applyRank(rank + 1);
+            chunk.applyRank(rank + 1, rrfK);
         }
 
         for (int rank = 0; rank < sparseHits.size(); rank++) {
             KeywordHit hit = sparseHits.get(rank);
             RankedChunk chunk = fusedByChunkId.computeIfAbsent(hit.chunkId(),
                     id -> new RankedChunk(id, hit.documentId(), hit.chunkIndex(), hit.chunkText()));
-            chunk.applyRank(rank + 1);
+            chunk.applyRank(rank + 1, rrfK);
         }
 
         return new ArrayList<>(fusedByChunkId.values());
@@ -179,8 +181,8 @@ public class HybridChunkRetrievalService {
             this.content = content;
         }
 
-        void applyRank(int rank) {
-            rrfScore += 1.0 / (RRF_K + rank);
+        void applyRank(int rank, int rrfK) {
+            rrfScore += 1.0 / (rrfK + rank);
         }
 
         Long chunkId() {

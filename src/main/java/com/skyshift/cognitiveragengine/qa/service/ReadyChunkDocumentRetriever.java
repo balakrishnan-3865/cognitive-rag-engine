@@ -46,7 +46,7 @@ public class ReadyChunkDocumentRetriever implements DocumentRetriever {
     }
 
     public DocumentBundle retrieveDocuments(Long groupId, String question) {
-        int topK = qaProperties.getTopKDefault();
+        int topK = qaProperties.getTopK();
         return hybridChunkRetrievalService.retrieveRelevantChunks(question, groupId, topK);
     }
 
