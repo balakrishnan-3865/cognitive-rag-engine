@@ -56,7 +56,6 @@ public class ChunkVectorIngestionOrchestrator {
             List<DocumentChunkEntity> chunks = fetchDocumentChunks(documentId, groupId);
             embedAndStoreVectors(documentId, chunks);
             indexInElasticsearch(documentId, chunks);
-
             markDocumentAsReady(documentId);
             log.info("Ingestion pipeline completed successfully: documentId={}, totalChunks={}",
                      documentId, chunks.size());
@@ -69,9 +68,16 @@ public class ChunkVectorIngestionOrchestrator {
 
         } catch (Exception exception) {
             log.error("Ingestion pipeline failed: documentId={}, error={}", documentId, exception.getMessage());
-            documentMapper.updateStatusAndReason(documentId,
-                DocumentStatus.FAILED.name(),
-                exception.getMessage());
+            try {
+                documentMapper.updateStatusAndReason(documentId,
+                    DocumentStatus.FAILED.name(),
+                    exception.getMessage());
+            } catch (Exception statusUpdateError) {
+                log.error("CRITICAL: Failed to update document status after ingestion failure: documentId={}. " +
+                         "Document remains in INJECTING state. Data consistency unknown. " +
+                         "Manual intervention required to resolve orphaned ingestion state.",
+                         documentId, statusUpdateError);
+            }
         }
     }
 
@@ -135,7 +141,15 @@ public class ChunkVectorIngestionOrchestrator {
     }
 
     private void markDocumentAsReady(Long documentId) {
-        documentMapper.updateStatus(documentId, DocumentStatus.READY.name());
+        try {
+            documentMapper.updateStatus(documentId, DocumentStatus.READY.name());
+
+        } catch (Exception error) {
+            log.error("CRITICAL: Ingestion succeeded but failed to mark READY: documentId={}. " +
+                     "Data is ingested (pgVector/Elasticsearch). Document remains in INJECTING state. " +
+                     "Scheduled recovery job will resolve this.",
+                     documentId, error);
+        }
     }
 
     private void validateDocumentExists(Long documentId) {
