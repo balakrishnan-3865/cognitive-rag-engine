@@ -6,9 +6,11 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.skyshift.cognitiveragengine.common.exception.BusinessException;
+import com.skyshift.cognitiveragengine.ingestion.exception.NoChunksFoundException;
 import com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.SparseChunkDto;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -96,38 +98,51 @@ public class ElasticsearchChunkIndexService {
         );
     }
 
-    public void indexChunks(String fileName, List<DocumentChunkEntity> chunks) throws IOException {
+    public void indexChunks(Long documentId, String fileName, List<DocumentChunkEntity> chunks) throws IOException {
         ensureIndexExists();
 
         if (chunks == null || chunks.isEmpty()) {
-            log.warn("No chunks provided for indexing with fileName: {}", fileName);
-            return;
+            throw new NoChunksFoundException("Cannot index chunks: no chunks provided for fileName=" + fileName);
         }
-
-        List<String> allIndexedIds = new ArrayList<>();
 
         try {
             // Process chunks in batches
             for (int i = 0; i < chunks.size(); i += BATCH_SIZE) {
                 int end = Math.min(i + BATCH_SIZE, chunks.size());
                 List<DocumentChunkEntity> batch = chunks.subList(i, end);
-                List<String> batchIndexedIds = new ArrayList<>();
-
-                processBulkIndexBatch(fileName, batch, batchIndexedIds);
-                allIndexedIds.addAll(batchIndexedIds);
+                processBulkIndexBatch(fileName, batch);
                 log.debug("Successfully indexed batch of {} chunks for file: {}", batch.size(), fileName);
             }
 
             elasticsearchClient.indices().refresh(req -> req.index(CHUNK_INDEX_NAME));
             log.info("Successfully indexed all {} chunks for file: {}", chunks.size(), fileName);
+
         } catch (Exception e) {
             log.error("Overall indexing failed for file: {}. Rolling back all indexed chunks...", fileName, e);
-            rollbackIndexedChunks(allIndexedIds);
+
+            try {
+                deleteChunksByDocumentId(documentId);
+            } catch (IOException rollbackError) {
+                log.error("Rollback failed after indexing failure for file: {}. Manual cleanup may be required.", fileName, rollbackError);
+                throw new IOException("Rollback failed after indexing failure for file: " + fileName, rollbackError);
+            }
+
             throw e;
         }
     }
 
-    private void processBulkIndexBatch(String fileName, List<DocumentChunkEntity> batch, List<String> batchIndexedIds) throws IOException {
+
+    /**
+     * Indexes a single batch of chunks with per-batch retry and exponential backoff.
+     * Elasticsearch is external (not transactional), so @Retry handles transient failures.
+     * If batch fails after max retries, fallback throws IOException to trigger compensating rollback.
+     *
+     * @Retry: 5 max attempts with exponential backoff (500ms initial, 2x multiplier)
+     * Configuration: application.yaml resilience4j.retry.instances.elasticsearch-batch
+     * Retries on: IOException, ResponseException (network/temporary errors)
+     */
+    @Retry(name = "elasticsearch-batch", fallbackMethod = "handleBulkIndexBatchFailure")
+    public void processBulkIndexBatch(String fileName, List<DocumentChunkEntity> batch) throws IOException {
         List<BulkOperation> operations = new ArrayList<>();
 
         for (DocumentChunkEntity chunk : batch) {
@@ -140,15 +155,37 @@ public class ElasticsearchChunkIndexService {
                             .document(sparseChunk)
                     )
             ));
-            batchIndexedIds.add(chunk.getId().toString());
         }
 
-        BulkResponse bulkResponse = elasticsearchClient.bulk(req -> req.operations(operations));
+        try {
+            BulkResponse bulkResponse = elasticsearchClient.bulk(req -> req.operations(operations));
 
-        if (bulkResponse.errors()) {
-            log.error("Errors occurred during bulk indexing for file: {}. Rolling back...", fileName);
-            throw new RuntimeException("Bulk indexing failed with errors");
+            if (bulkResponse.errors()) {
+                log.error("Errors occurred during bulk indexing for file: {}. Will retry...", fileName);
+                throw new IOException("Bulk indexing failed with errors");
+            }
+
+            log.debug("Successfully indexed batch of {} chunks for file: {}", batch.size(), fileName);
+
+        } catch (IOException e) {
+            log.warn("Bulk indexing failed for file: {} (will retry with exponential backoff)", fileName, e);
+            throw e;
         }
+    }
+
+    /**
+     * Fallback: Called when @Retry exhausts max attempts for a batch.
+     * Throws IOException to trigger compensating rollback at indexChunks level.
+     *
+     * Method signature must match processBulkIndexBatch() plus Throwable parameter.
+     */
+    private void handleBulkIndexBatchFailure(String fileName, List<DocumentChunkEntity> batch, List<String> batchIndexedIds, Throwable t) throws IOException {
+        log.error("Bulk indexing PERMANENTLY FAILED after max retry attempts for file: {}. " +
+                 "Triggering compensating rollback at indexChunks level.", fileName, t);
+
+        throw new IOException(
+            "Bulk indexing failed after max retry attempts for batch of " + batch.size() +
+            " chunks in file: " + fileName + ". Error: " + t.getMessage(), t);
     }
 
     public List<KeywordHit> searchChunks(String query, Long groupId, int topK) throws IOException {
@@ -267,7 +304,7 @@ public class ElasticsearchChunkIndexService {
         }
     }
 
-    private void rollbackIndexedChunks(List<String> indexedIds) {
+    private void rollbackIndexedChunks(List<String> indexedIds) throws IOException {
         if (indexedIds == null || indexedIds.isEmpty()) {
             return;
         }
@@ -275,8 +312,12 @@ public class ElasticsearchChunkIndexService {
         try {
             deleteChunksByIds(CHUNK_INDEX_NAME, indexedIds);
             log.info("Rollback successful: deleted {} indexed chunks", indexedIds.size());
-        } catch (Exception e) {
-            log.error("Rollback failed: unable to delete indexed chunks. Manual cleanup may be required.", e);
+        } catch (RuntimeException e) {
+            log.error("CRITICAL: Rollback failed for {} chunks. Manual cleanup required. Indexed IDs: {}",
+                indexedIds.size(), indexedIds, e);
+            throw new IOException(
+                "Rollback failed: Elasticsearch has orphaned data. IDs requiring manual cleanup: " + indexedIds,
+                e);
         }
     }
 

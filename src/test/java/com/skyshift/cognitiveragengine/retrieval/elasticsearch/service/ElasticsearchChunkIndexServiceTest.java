@@ -2,6 +2,7 @@ package com.skyshift.cognitiveragengine.retrieval.elasticsearch.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.skyshift.cognitiveragengine.common.exception.BusinessException;
+import com.skyshift.cognitiveragengine.ingestion.exception.NoChunksFoundException;
 import com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +64,7 @@ class ElasticsearchChunkIndexServiceTest {
                 .build();
 
         List<DocumentChunkEntity> chunks = List.of(chunk);
-        assertDoesNotThrow(() -> elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks));
+        assertDoesNotThrow(() -> elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks));
 
         Thread.sleep(1000); // Wait for indexing
     }
@@ -73,7 +74,7 @@ class ElasticsearchChunkIndexServiceTest {
     void testIndexMultipleChunks() throws IOException, InterruptedException {
         List<DocumentChunkEntity> chunks = createTestChunks(75, TEST_GROUP_ID, TEST_DOCUMENT_ID);
 
-        assertDoesNotThrow(() -> elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks));
+        assertDoesNotThrow(() -> elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks));
 
         Thread.sleep(1000);
     }
@@ -92,7 +93,7 @@ class ElasticsearchChunkIndexServiceTest {
         List<DocumentChunkEntity> chunks = List.of(invalidChunk);
 
         assertThrows(BusinessException.class,
-                () -> elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks),
+                () -> elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks),
                 "Should throw BusinessException for missing required fields");
     }
 
@@ -107,8 +108,8 @@ class ElasticsearchChunkIndexServiceTest {
         List<DocumentChunkEntity> chunks1 = createTestChunks(3, groupId1, docId1);
         List<DocumentChunkEntity> chunks2 = createTestChunksWithOffset(3, groupId2, docId2, 100);
 
-        elasticsearchChunkIndexService.indexChunks("file1.pdf", chunks1);
-        elasticsearchChunkIndexService.indexChunks("file2.pdf", chunks2);
+        elasticsearchChunkIndexService.indexChunks(docId1, "file1.pdf", chunks1);
+        elasticsearchChunkIndexService.indexChunks(docId2, "file2.pdf", chunks2);
 
         Thread.sleep(1000);
 
@@ -123,7 +124,7 @@ class ElasticsearchChunkIndexServiceTest {
     @DisplayName("Should respect topK limit in search results")
     void testSearchChunksWithTopKLimit() throws IOException, InterruptedException {
         List<DocumentChunkEntity> chunks = createTestChunks(20, TEST_GROUP_ID, TEST_DOCUMENT_ID);
-        elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks);
+        elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks);
 
         Thread.sleep(1000);
 
@@ -150,7 +151,7 @@ class ElasticsearchChunkIndexServiceTest {
     void testDeleteChunksByDocumentId() throws IOException, InterruptedException {
         Long docIdToDelete = 200L;
         List<DocumentChunkEntity> chunks = createTestChunks(5, TEST_GROUP_ID, docIdToDelete);
-        elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks);
+        elasticsearchChunkIndexService.indexChunks(docIdToDelete, TEST_FILE_NAME, chunks);
 
         Thread.sleep(1000);
 
@@ -163,7 +164,7 @@ class ElasticsearchChunkIndexServiceTest {
     @DisplayName("Should delete chunks by specific IDs")
     void testDeleteChunksByIds() throws IOException, InterruptedException {
         List<DocumentChunkEntity> chunks = createTestChunks(5, TEST_GROUP_ID, TEST_DOCUMENT_ID);
-        elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks);
+        elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks);
 
         Thread.sleep(1000);
 
@@ -179,20 +180,24 @@ class ElasticsearchChunkIndexServiceTest {
     void testIndexEmptyChunkList() {
         List<DocumentChunkEntity> emptyChunks = new ArrayList<>();
 
-        assertDoesNotThrow(() -> elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, emptyChunks));
+        assertThrows(NoChunksFoundException.class,
+                () -> elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, emptyChunks),
+                "Should throw NoChunksFoundException for empty chunks list");
     }
 
     @Test
     @DisplayName("Should handle null chunk list gracefully")
     void testIndexNullChunkList() {
-        assertDoesNotThrow(() -> elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, null));
+        assertThrows(NoChunksFoundException.class,
+                () -> elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, null),
+                "Should throw NoChunksFoundException for null chunks list");
     }
 
     @Test
     @DisplayName("Should normalize keyword scores to [0, 1] range")
     void testScoreNormalization() throws IOException, InterruptedException {
         List<DocumentChunkEntity> chunks = createTestChunks(5, TEST_GROUP_ID, TEST_DOCUMENT_ID);
-        elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks);
+        elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks);
 
         Thread.sleep(1000);
 
@@ -230,7 +235,7 @@ class ElasticsearchChunkIndexServiceTest {
                 .build());
 
         assertThrows(BusinessException.class,
-                () -> elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks),
+                () -> elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks),
                 "Should throw BusinessException on validation failure");
     }
 
@@ -238,7 +243,7 @@ class ElasticsearchChunkIndexServiceTest {
     @DisplayName("Should search with special characters in query")
     void testSearchWithSpecialCharacters() throws IOException, InterruptedException {
         List<DocumentChunkEntity> chunks = createTestChunks(3, TEST_GROUP_ID, TEST_DOCUMENT_ID);
-        elasticsearchChunkIndexService.indexChunks(TEST_FILE_NAME, chunks);
+        elasticsearchChunkIndexService.indexChunks(TEST_DOCUMENT_ID, TEST_FILE_NAME, chunks);
 
         Thread.sleep(1000);
 

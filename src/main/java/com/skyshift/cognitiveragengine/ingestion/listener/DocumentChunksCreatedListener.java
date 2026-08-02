@@ -18,6 +18,23 @@ public class DocumentChunksCreatedListener {
         this.chunkVectorIngestionOrchestrator = chunkVectorIngestionOrchestrator;
     }
 
+    /**
+     * Processes document chunks ingestion asynchronously after chunk creation is committed.
+     *
+     * Concurrency & Idempotency Guarantees:
+     * - One event per documentId: DocumentChunksCreatedEvent is published exactly once when chunks are saved
+     * - @Async: Processed in thread pool, non-blocking
+     * - Database-level lock: acquireIngestionLock() uses atomic conditional UPDATE (PROCESSING → INJECTING)
+     *   preventing duplicate processing even if event delivered multiple times or in highly concurrent environments
+     * - State-based locking: Status value itself is the lock; no explicit acquire/release needed
+     *
+     * Safe for: Distributed systems, high concurrency, event bus retries, pod/instance scaling
+     *
+     * Flow: Event → PROCESSING status → INJECTING status (lock acquired) → embedAndStore + index
+     *       → READY/FAILED/NO_CHUNKS_FOUND status (lock released implicitly)
+     *
+     * Any retry or concurrent invocation will see final status and be rejected by WHERE clause in conditional update.
+     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onDocumentChunksCreated(DocumentChunksCreatedEvent event) {

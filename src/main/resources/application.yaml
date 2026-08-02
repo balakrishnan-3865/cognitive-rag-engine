@@ -163,3 +163,33 @@ logging:
     org.springframework.scheduling: DEBUG
     com.skyshift.cognitiveragengine: DEBUG
     org.springframework.ai: DEBUG
+
+# Resilience4j: Automatic retry with exponential backoff for transient failures
+resilience4j:
+  retry:
+    instances:
+      embedding-batch:
+        maxAttempts: 3
+        waitDuration: 100  # milliseconds
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2.0
+        randomizedWaitDuration: true
+        retryExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - java.net.ConnectException
+          - org.springframework.web.client.ResourceAccessException
+        doNotRetry:
+          - com.skyshift.cognitiveragengine.common.exception.BusinessException
+          - IllegalArgumentException
+          - java.lang.OutOfMemoryError
+
+      elasticsearch-batch:
+        maxAttempts: 5  # More lenient (not token-consuming)
+        waitDuration: 500
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2.0
+        randomizedWaitDuration: true
+        retryExceptions:
+          - java.io.IOException
+          - org.elasticsearch.client.ResponseException

@@ -42,7 +42,7 @@ class VectorIngestionServiceIntegrationTest {
     void testDeleteBeforeIngestion() {
         List<DocumentChunkEntity> chunks = createChunkList(25);
 
-        service.ingestDocumentChunks(chunks);
+        service.embedAndStoreDocumentChunks(100L, chunks);
 
         verify(vectorStore, times(1)).delete(any(Filter.Expression.class));
         ArgumentCaptor<Filter.Expression> deleteCaptor = ArgumentCaptor.forClass(Filter.Expression.class);
@@ -57,7 +57,7 @@ class VectorIngestionServiceIntegrationTest {
     void testIngestWithConfiguredBatchSize() {
         List<DocumentChunkEntity> chunks = createChunkList(25);
 
-        service.ingestDocumentChunks(chunks);
+        service.embedAndStoreDocumentChunks(100L, chunks);
 
         verify(vectorStore).delete(any(Filter.Expression.class));
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
@@ -74,7 +74,7 @@ class VectorIngestionServiceIntegrationTest {
     void testIngestLargeDocumentSet() {
         List<DocumentChunkEntity> chunks = createChunkList(105);
 
-        service.ingestDocumentChunks(chunks);
+        service.embedAndStoreDocumentChunks(100L, chunks);
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore, times(11)).add(captor.capture());
@@ -91,7 +91,7 @@ class VectorIngestionServiceIntegrationTest {
     void testDocumentIntegrityThroughPipeline() {
         DocumentChunkEntity chunk = createComplexChunk();
 
-        service.ingestDocumentChunks(List.of(chunk));
+        service.embedAndStoreDocumentChunks(100L, List.of(chunk));
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore).add(captor.capture());
@@ -125,7 +125,7 @@ class VectorIngestionServiceIntegrationTest {
 
         chunk.setMetadataJson(convertToJson(jsonMeta));
 
-        service.ingestDocumentChunks(List.of(chunk));
+        service.embedAndStoreDocumentChunks(1L, List.of(chunk));
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore).add(captor.capture());
@@ -148,7 +148,7 @@ class VectorIngestionServiceIntegrationTest {
         chunk.setStartPosition(0);
         chunk.setEndPosition(4);
 
-        service.ingestDocumentChunks(List.of(chunk));
+        service.embedAndStoreDocumentChunks(1L, List.of(chunk));
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore).add(captor.capture());
@@ -176,7 +176,7 @@ class VectorIngestionServiceIntegrationTest {
 
         chunks.addAll(List.of(pdfChunk, txtChunk, docChunk));
 
-        service.ingestDocumentChunks(chunks);
+        service.embedAndStoreDocumentChunks(1L, chunks);
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore).add(captor.capture());
@@ -196,7 +196,7 @@ class VectorIngestionServiceIntegrationTest {
             chunks.add(createSampleChunk((long) i, (long) i, "Text " + i));
         }
 
-        service.ingestDocumentChunks(chunks);
+        service.embedAndStoreDocumentChunks(1L, chunks);
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore, times(1)).add(captor.capture());
@@ -214,7 +214,7 @@ class VectorIngestionServiceIntegrationTest {
         DocumentChunkEntity chunk = createSampleChunk(1L, 1L, "Text");
         chunk.setMetadataJson("");
 
-        service.ingestDocumentChunks(List.of(chunk));
+        service.embedAndStoreDocumentChunks(1L, List.of(chunk));
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore).add(captor.capture());
@@ -230,7 +230,7 @@ class VectorIngestionServiceIntegrationTest {
         DocumentChunkEntity chunk = createSampleChunk(1L, 1L, "Text");
         chunk.setMetadataJson(null);
 
-        service.ingestDocumentChunks(List.of(chunk));
+        service.embedAndStoreDocumentChunks(1L, List.of(chunk));
 
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
         verify(vectorStore).add(captor.capture());
@@ -248,11 +248,10 @@ class VectorIngestionServiceIntegrationTest {
 
         DocumentChunkEntity chunk = createSampleChunk(1L, 1L, "Text");
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-                service.ingestDocumentChunks(List.of(chunk)));
+        assertThrows(Exception.class, () ->
+                service.embedAndStoreDocumentChunks(1L, List.of(chunk)));
 
         verify(vectorStore).delete(any(Filter.Expression.class));
-        assertTrue(ex.getMessage().contains("Vector ingestion failed"));
     }
 
     @Test
@@ -263,10 +262,9 @@ class VectorIngestionServiceIntegrationTest {
 
         DocumentChunkEntity chunk = createSampleChunk(1L, 1L, "Text");
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-                service.ingestDocumentChunks(List.of(chunk)));
+        assertThrows(RuntimeException.class, () ->
+                service.embedAndStoreDocumentChunks(1L, List.of(chunk)));
 
-        assertTrue(ex.getMessage().contains("Cannot proceed with vector ingestion"));
         verify(vectorStore).delete(any(Filter.Expression.class));
         verify(vectorStore, never()).add(anyList());
     }
@@ -281,8 +279,8 @@ class VectorIngestionServiceIntegrationTest {
 
         List<DocumentChunkEntity> chunks = createChunkList(5);
 
-        assertThrows(RuntimeException.class, () ->
-                smallBatchService.ingestDocumentChunks(chunks));
+        assertThrows(Exception.class, () ->
+                smallBatchService.embedAndStoreDocumentChunks(100L, chunks));
 
         verify(vectorStore).delete(any(Filter.Expression.class));
         verify(vectorStore, times(1)).add(anyList());

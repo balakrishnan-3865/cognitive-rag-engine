@@ -18,4 +18,9 @@ public interface DocumentMapper {
         @Param("documentId") Long documentId,
         @Param("status") String status,
         @Param("failureReason") String failureReason);
+
+    int updateStatusFromTo(
+        @Param("documentId") Long documentId,
+        @Param("fromStatus") String fromStatus,
+        @Param("toStatus") String toStatus);
 }

@@ -3,12 +3,14 @@ package com.skyshift.cognitiveragengine.ingestion.service;
 import com.skyshift.cognitiveragengine.common.exception.BusinessException;
 import com.skyshift.cognitiveragengine.document.mapper.DocumentMapper;
 import com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity;
+import com.skyshift.cognitiveragengine.ingestion.exception.NoChunksFoundException;
 import com.skyshift.cognitiveragengine.ingestion.mapper.DocumentChunkMapper;
 import com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity;
 import com.skyshift.cognitiveragengine.ingestion.model.enums.DocumentStatus;
 import com.skyshift.cognitiveragengine.ingestion.vectorstore.VectorIngestionService;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,72 +38,99 @@ public class ChunkVectorIngestionOrchestrator {
     }
 
     public void ingestVectorsAndIndexChunks(Long documentId, Long groupId) {
-        log.info("Starting vector ingestion and indexing: documentId={}, groupId={}", documentId, groupId);
+        if (documentId == null || groupId == null) {
+            log.error("Invalid parameters: documentId={}, groupId={}", documentId, groupId);
+            throw new BusinessException("Document ID and Group ID must not be null");
+        }
+
+        log.info("Starting vector ingestion and indexing for documentId={}, groupId={}", documentId, groupId);
+
+        validateDocumentExists(documentId);
+
+        if (!acquireIngestionLock(documentId)) {
+            log.warn("Document is already being ingested by another instance: documentId={}", documentId);
+            throw new BusinessException(
+                "Document is currently being ingested by another instance. " +
+                "Please retry after the current ingestion completes.");
+        }
 
         try {
-            embedAndStoreVectors(documentId, groupId);
-            indexInElasticsearch(documentId, groupId);
+            List<DocumentChunkEntity> chunks = fetchDocumentChunks(documentId, groupId);
+            embedAndStoreVectors(documentId, chunks);
+            indexInElasticsearch(documentId, chunks);
+
             markDocumentAsReady(documentId);
             log.info("Vector ingestion and indexing completed successfully for documentId={}", documentId);
-        } catch (Exception e) {
-            log.error("Vector ingestion and indexing failed for documentId={}", documentId, e);
+
+        } catch (NoChunksFoundException exception) {
+            log.warn("No chunks found for document: documentId={}", documentId, exception);
+            documentMapper.updateStatusAndReason(documentId,
+                DocumentStatus.NO_CHUNKS_FOUND.name(),
+                "Ingestion skipped: no document chunks available");
+
+        } catch (Exception exception) {
+            log.error("Vector ingestion and indexing failed for documentId={}", documentId, exception);
             documentMapper.updateStatusAndReason(documentId,
                 DocumentStatus.FAILED.name(),
-                "Vector/Elasticsearch Stage: " + e.getMessage());
+                "Vector/Elasticsearch Stage: " + exception.getMessage());
+
         }
     }
 
-    /**
-     * TX2: Isolated transaction for vector embedding and storage.
-     * Separate TX from ParseAndChunkService to allow independent retry of embedding.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    private void embedAndStoreVectors(Long documentId, Long groupId) {
-        log.info("TX2 (REQUIRES_NEW): Starting vector embedding for documentId={}", documentId);
-
+    public void embedAndStoreVectors(Long documentId, List<DocumentChunkEntity> chunks) {
         try {
-            List<DocumentChunkEntity> chunks = documentChunkMapper.selectByDocumentIdAndGroupId(documentId, groupId);
+            vectorIngestionService.embedAndStoreDocumentChunks(documentId, chunks);
+            log.info("Vector embedding completed for documentId={}", documentId);
 
-            if (chunks.isEmpty()) {
-                log.warn("No chunks found for vector embedding: documentId={}", documentId);
-                return;
-            }
-
-            log.info("Fetched {} chunks for vector ingestion", chunks.size());
-
-            vectorIngestionService.ingestDocumentChunks(chunks);
-            log.info("Vector ingestion completed for {} chunks", chunks.size());
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Vector embedding and storage failed for documentId={}", documentId, e);
-            throw new BusinessException("Vector embedding failed for documentId " + documentId, e);
+        } catch (NoChunksFoundException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.error("Vector embedding failed for documentId={}", documentId, exception);
+            throw new BusinessException("Vector embedding failed: " + exception.getMessage(), exception);
         }
     }
 
-    /**
-     * TX3: No transaction - Elasticsearch indexing is eventually-consistent.
-     * Failures are logged but do not fail the document (pgvector is primary search index).
-     */
-    private void indexInElasticsearch(Long documentId, Long groupId) {
-        log.info("TX3 (NO TX): Starting Elasticsearch indexing for documentId={}", documentId);
+    @NotNull
+    private List<DocumentChunkEntity> fetchDocumentChunks(Long documentId, Long groupId) {
+        List<DocumentChunkEntity> chunks = documentChunkMapper.selectByDocumentIdAndGroupId(documentId, groupId);
 
+        if (chunks.isEmpty()) {
+            throw new NoChunksFoundException(
+                    "No chunks found for documentId=" + documentId);
+        }
+        log.debug("Fetched {} chunks for documentId={}", chunks.size(), documentId);
+        return chunks;
+    }
+
+    private void indexInElasticsearch(Long documentId, List<DocumentChunkEntity> chunks) {
         try {
-            List<DocumentChunkEntity> chunks = documentChunkMapper.selectByDocumentIdAndGroupId(documentId, groupId);
-
-            if (chunks.isEmpty()) {
-                log.warn("No chunks found for Elasticsearch indexing: documentId={}", documentId);
-                return;
-            }
-
             String fileName = getDocumentFileName(documentId);
-            elasticsearchChunkIndexService.indexChunks(fileName, chunks);
+            elasticsearchChunkIndexService.indexChunks(documentId, fileName, chunks);
             log.info("Elasticsearch indexing completed for {} chunks", chunks.size());
 
-        } catch (Exception e) {
-            log.error("Elasticsearch indexing failed for documentId={} (non-blocking, pgvector is primary)",
-                documentId, e);
+        } catch (NoChunksFoundException exception) {
+            throw exception;
+
+        } catch (Exception exception) {
+            log.error("Elasticsearch indexing failed for documentId={}. Triggering compensating rollback...",
+                     documentId, exception);
+
+            try {
+                vectorIngestionService.deleteExistingEmbeddings(documentId);
+                log.info("Compensating rollback successful: deleted embeddings for documentId={} " +
+                        "to maintain consistency with Elasticsearch failure", documentId);
+            } catch (Exception rollbackError) {
+                log.error("CRITICAL: Compensating rollback FAILED for documentId={}. " +
+                         "pgVector has embeddings but Elasticsearch indexing failed. Manual cleanup required.",
+                         documentId, rollbackError);
+                throw new BusinessException(
+                    "Elasticsearch indexing failed AND compensating rollback failed. " +
+                    "pgVector has orphaned embeddings. Manual cleanup required for documentId: " + documentId,
+                    rollbackError);
+            }
+
+            throw new BusinessException("Elasticsearch indexing failed: " + exception.getMessage(), exception);
         }
     }
 
@@ -113,5 +142,43 @@ public class ChunkVectorIngestionOrchestrator {
     private void markDocumentAsReady(Long documentId) {
         log.info("Marking document as READY: documentId={}", documentId);
         documentMapper.updateStatus(documentId, DocumentStatus.READY.name());
+    }
+
+    private void validateDocumentExists(Long documentId) {
+        DocumentEntity document = documentMapper.selectById(documentId);
+
+        if (document == null) {
+            log.error("Document not found: documentId={}", documentId);
+            throw new BusinessException("Document not found: documentId=" + documentId);
+        }
+
+        if (Boolean.TRUE.equals(document.getDeleted())) {
+            log.error("Document is deleted: documentId={}", documentId);
+            throw new BusinessException("Document is deleted: documentId=" + documentId);
+        }
+    }
+
+    /**
+     * Acquires an ingestion lock by atomically transitioning document status.
+     * Only succeeds if document is currently in PROCESSING state (another instance guard).
+     * Returns true if lock acquired (transition successful), false if already being ingested.
+     *
+     * Status transition: PROCESSING → INJECTING (idempotency guard for distributed systems)
+     * If transition fails (returns 0 rows), another instance is already working on this document.
+     */
+    private boolean acquireIngestionLock(Long documentId) {
+        int rowsUpdated = documentMapper.updateStatusFromTo(
+            documentId,
+            DocumentStatus.PROCESSING.name(),
+            DocumentStatus.INJECTING.name()
+        );
+
+        if (rowsUpdated > 0) {
+            log.info("Ingestion lock acquired: documentId={} PROCESSING → INJECTING", documentId);
+            return true;
+        } else {
+            log.warn("Ingestion lock NOT acquired: documentId={} is not in PROCESSING state", documentId);
+            return false;
+        }
     }
 }

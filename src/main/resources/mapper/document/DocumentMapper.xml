@@ -101,4 +101,10 @@
         SET status = #{status}, failure_reason = #{failureReason}, updated_at = NOW()
         WHERE id = #{documentId}
     </update>
+
+    <update id="updateStatusFromTo">
+        UPDATE documents
+        SET status = #{toStatus}, updated_at = NOW()
+        WHERE id = #{documentId} AND status = #{fromStatus}
+    </update>
 </mapper>
