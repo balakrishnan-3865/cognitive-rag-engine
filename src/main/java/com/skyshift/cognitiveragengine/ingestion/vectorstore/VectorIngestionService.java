@@ -39,32 +39,30 @@ public class VectorIngestionService {
     public void embedAndStoreDocumentChunks(Long documentId, List<DocumentChunkEntity> chunks) {
 
         if(chunks == null || chunks.isEmpty()) {
-            log.warn("No document chunks found for documentId={}", documentId);
             throw new NoChunksFoundException("No document chunks found for documentId " + documentId);
         }
 
         try {
-            // Delete any existing embeddings (idempotent re-ingestion safety)
             deleteExistingEmbeddings(documentId);
 
-            // Partition chunks into batches
             List<Document> documents = convertToSpringAIDocuments(chunks);
             List<List<Document>> batches = partitionIntoBatches(documents, batchSize);
-
-            log.info("Embedding {} chunks in {} batches for documentId={}",
-                    chunks.size(), batches.size(), documentId);
-
-            // Process batches sequentially with per-batch retry and transaction isolation
             int totalBatches = batches.size();
+
+            log.info("Starting pgVector embedding: documentId={}, totalChunks={}, totalBatches={}",
+                    documentId, chunks.size(), totalBatches);
+
             for (int batchNum = 0; batchNum < totalBatches; batchNum++) {
                 List<Document> batch = batches.get(batchNum);
                 embedBatchWithRetry(batch, batchNum, totalBatches, documentId);
             }
 
-            log.info("Embedding completed successfully for documentId={}", documentId);
+            log.info("pgVector embedding completed successfully: documentId={}, embeddedChunks={}",
+                     documentId, chunks.size());
         } catch (Exception e) {
-            log.error("Embedding failed for documentId={}", documentId, e);
-            compensatingRollback(documentId);  // Trigger compensating rollback
+            log.error("pgVector embedding failed: documentId={}, failureMessage={}. Initiating compensating rollback...",
+                     documentId, e.getMessage());
+            compensatingRollback(documentId);
 
             throw new BusinessException(
                     "Embedding failed for documentId " + documentId + ": " + e.getMessage(), e);
@@ -77,16 +75,14 @@ public class VectorIngestionService {
      * Result: Document marked FAILED at orchestrator level with failure reason.
      */
     private void compensatingRollback(Long documentId) {
-        log.error("Triggering compensating rollback for documentId={}: " +
-                 "deleting all vectors to maintain consistency", documentId);
-
         try {
             deleteExistingEmbeddings(documentId);
-            log.info("Compensating rollback COMPLETE: deleted all vectors for documentId={}", documentId);
+            log.info("pgVector rollback completed: documentId={}", documentId);
 
         } catch (Exception exception) {
-            log.error("CRITICAL: Compensating rollback FAILED for documentId={}. " +
-                     "Manual cleanup of vectors may be required.", documentId, exception);
+            log.error("CRITICAL: pgVector rollback FAILED: documentId={}. " +
+                     "Manual cleanup required. Orphaned vectors may exist for this documentId.",
+                     documentId, exception);
 
             throw new RuntimeException(
                 "Compensating rollback failed for documentId " + documentId +
@@ -108,12 +104,9 @@ public class VectorIngestionService {
     private void embedBatchWithRetry(List<Document> batch, int batchNum, int totalBatches, Long documentId) {
         try {
             vectorStore.add(batch);
-            log.debug("Embedded batch {} of {} ({} documents) for documentId={}",
-                     batchNum + 1, totalBatches, batch.size(), documentId);
-
         } catch (Exception e) {
-            log.warn("Embedding failed for batch {} of {} (documentId={}, will retry)",
-                    batchNum + 1, totalBatches, documentId, e);
+            log.warn("pgVector batch embedding failed (will retry): batch {}/{}, documentId={}, chunkCount={}",
+                    batchNum + 1, totalBatches, documentId, batch.size());
             throw new RuntimeException(
                 "Batch " + batchNum + " embedding failed: " + e.getMessage(), e);
         }
@@ -127,9 +120,9 @@ public class VectorIngestionService {
      */
     private void handleBatchEmbeddingFailure(
             List<Document> batch, int batchNum, int totalBatches, Long documentId, Throwable t) {
-        log.error("Batch {} embedding PERMANENTLY FAILED after max retry attempts for documentId={}. " +
-                 "Triggering compensating rollback at orchestrator level.",
-                 batchNum + 1, documentId, t);
+        log.error("pgVector batch embedding PERMANENTLY FAILED after max retry attempts: batch {}/{}, " +
+                 "documentId={}, chunkCount={}. Batch will be rolled back at document level.",
+                 batchNum + 1, totalBatches, documentId, batch.size());
 
         throw new BusinessException(
             "Batch " + (batchNum + 1) + " embedding failed after max retry attempts: " + t.getMessage(), t);
@@ -147,10 +140,9 @@ public class VectorIngestionService {
                 .build();
 
             vectorStore.delete(filter);
-            log.debug("Deleted existing embeddings for documentId={}", documentId);
 
         } catch (Exception e) {
-            log.error("Failed to delete existing embeddings for documentId={}", documentId, e);
+            log.error("pgVector deletion failed: documentId={}, error={}", documentId, e.getMessage(), e);
             throw new RuntimeException(
                 "Cannot delete existing embeddings for documentId " + documentId +
                 ". Vector store may be in inconsistent state.", e);

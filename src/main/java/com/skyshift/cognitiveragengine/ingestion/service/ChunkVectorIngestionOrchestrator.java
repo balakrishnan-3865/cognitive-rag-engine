@@ -39,16 +39,14 @@ public class ChunkVectorIngestionOrchestrator {
 
     public void ingestVectorsAndIndexChunks(Long documentId, Long groupId) {
         if (documentId == null || groupId == null) {
-            log.error("Invalid parameters: documentId={}, groupId={}", documentId, groupId);
             throw new BusinessException("Document ID and Group ID must not be null");
         }
 
-        log.info("Starting vector ingestion and indexing for documentId={}, groupId={}", documentId, groupId);
+        log.info("Starting ingestion pipeline: documentId={}, groupId={}", documentId, groupId);
 
         validateDocumentExists(documentId);
 
         if (!acquireIngestionLock(documentId)) {
-            log.warn("Document is already being ingested by another instance: documentId={}", documentId);
             throw new BusinessException(
                 "Document is currently being ingested by another instance. " +
                 "Please retry after the current ingestion completes.");
@@ -60,20 +58,20 @@ public class ChunkVectorIngestionOrchestrator {
             indexInElasticsearch(documentId, chunks);
 
             markDocumentAsReady(documentId);
-            log.info("Vector ingestion and indexing completed successfully for documentId={}", documentId);
+            log.info("Ingestion pipeline completed successfully: documentId={}, totalChunks={}",
+                     documentId, chunks.size());
 
         } catch (NoChunksFoundException exception) {
-            log.warn("No chunks found for document: documentId={}", documentId, exception);
+            log.warn("Ingestion skipped (no chunks): documentId={}", documentId);
             documentMapper.updateStatusAndReason(documentId,
                 DocumentStatus.NO_CHUNKS_FOUND.name(),
-                "Ingestion skipped: no document chunks available");
+                "No document chunks available");
 
         } catch (Exception exception) {
-            log.error("Vector ingestion and indexing failed for documentId={}", documentId, exception);
+            log.error("Ingestion pipeline failed: documentId={}, error={}", documentId, exception.getMessage());
             documentMapper.updateStatusAndReason(documentId,
                 DocumentStatus.FAILED.name(),
-                "Vector/Elasticsearch Stage: " + exception.getMessage());
-
+                exception.getMessage());
         }
     }
 
@@ -81,12 +79,11 @@ public class ChunkVectorIngestionOrchestrator {
     public void embedAndStoreVectors(Long documentId, List<DocumentChunkEntity> chunks) {
         try {
             vectorIngestionService.embedAndStoreDocumentChunks(documentId, chunks);
-            log.info("Vector embedding completed for documentId={}", documentId);
 
         } catch (NoChunksFoundException exception) {
             throw exception;
         } catch (Exception exception) {
-            log.error("Vector embedding failed for documentId={}", documentId, exception);
+            log.error("pgVector stage failed: documentId={}, error={}", documentId, exception.getMessage());
             throw new BusinessException("Vector embedding failed: " + exception.getMessage(), exception);
         }
     }
@@ -99,7 +96,6 @@ public class ChunkVectorIngestionOrchestrator {
             throw new NoChunksFoundException(
                     "No chunks found for documentId=" + documentId);
         }
-        log.debug("Fetched {} chunks for documentId={}", chunks.size(), documentId);
         return chunks;
     }
 
@@ -107,26 +103,25 @@ public class ChunkVectorIngestionOrchestrator {
         try {
             String fileName = getDocumentFileName(documentId);
             elasticsearchChunkIndexService.indexChunks(documentId, fileName, chunks);
-            log.info("Elasticsearch indexing completed for {} chunks", chunks.size());
 
         } catch (NoChunksFoundException exception) {
             throw exception;
 
         } catch (Exception exception) {
-            log.error("Elasticsearch indexing failed for documentId={}. Triggering compensating rollback...",
-                     documentId, exception);
+            log.error("Elasticsearch stage failed: documentId={}, error={}. Initiating cross-service rollback...",
+                     documentId, exception.getMessage());
 
             try {
                 vectorIngestionService.deleteExistingEmbeddings(documentId);
-                log.info("Compensating rollback successful: deleted embeddings for documentId={} " +
-                        "to maintain consistency with Elasticsearch failure", documentId);
+                log.info("Cross-service rollback completed: documentId={}, rolledBackChunks={}",
+                         documentId, chunks.size());
             } catch (Exception rollbackError) {
-                log.error("CRITICAL: Compensating rollback FAILED for documentId={}. " +
-                         "pgVector has embeddings but Elasticsearch indexing failed. Manual cleanup required.",
+                log.error("CRITICAL: Cross-service rollback FAILED: documentId={}. " +
+                         "pgVector has orphaned embeddings. Manual cleanup required.",
                          documentId, rollbackError);
                 throw new BusinessException(
-                    "Elasticsearch indexing failed AND compensating rollback failed. " +
-                    "pgVector has orphaned embeddings. Manual cleanup required for documentId: " + documentId,
+                    "Elasticsearch indexing AND cross-service rollback both failed. " +
+                    "Manual cleanup required for documentId: " + documentId,
                     rollbackError);
             }
 
@@ -140,7 +135,6 @@ public class ChunkVectorIngestionOrchestrator {
     }
 
     private void markDocumentAsReady(Long documentId) {
-        log.info("Marking document as READY: documentId={}", documentId);
         documentMapper.updateStatus(documentId, DocumentStatus.READY.name());
     }
 
@@ -173,12 +167,6 @@ public class ChunkVectorIngestionOrchestrator {
             DocumentStatus.INJECTING.name()
         );
 
-        if (rowsUpdated > 0) {
-            log.info("Ingestion lock acquired: documentId={} PROCESSING → INJECTING", documentId);
-            return true;
-        } else {
-            log.warn("Ingestion lock NOT acquired: documentId={} is not in PROCESSING state", documentId);
-            return false;
-        }
+        return rowsUpdated > 0;
     }
 }
