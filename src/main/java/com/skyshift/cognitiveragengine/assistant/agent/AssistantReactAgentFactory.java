@@ -3,7 +3,13 @@ package com.skyshift.cognitiveragengine.assistant.agent;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.skyshift.cognitiveragengine.assistant.config.AssistantProperties;
+import com.skyshift.cognitiveragengine.common.exception.MalformedToolCallException;
+import com.skyshift.cognitiveragengine.common.exception.RecursionLimitExceededException;
+import com.skyshift.cognitiveragengine.common.exception.ToolExecutionTimeoutException;
 import io.micrometer.observation.ObservationRegistry;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
@@ -13,12 +19,14 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Builds a fresh ReactAgent per call - no conversation memory yet, so nothing needs to survive
  * past the request, and a fresh instance guarantees the groupId-bound tool context below can
  * never bleed into another caller's request.
  */
+@Slf4j
 @Component
 public class AssistantReactAgentFactory {
 
@@ -58,5 +66,54 @@ public class AssistantReactAgentFactory {
                 .toolExecutionTimeout(Duration.ofMillis(assistantProperties.getToolTimeoutMs()))
                 .observationRegistry(observationRegistry)
                 .build();
+    }
+
+    public AssistantMessage callWithErrorHandling(ReactAgent agent, List<Message> messages) {
+        try {
+            return agent.call(messages);
+        } catch (Exception e) {
+            categorizeAndThrowException(e);
+            throw new RuntimeException("Unexpected agent error after categorization", e);
+        }
+    }
+
+    private void categorizeAndThrowException(Exception e) {
+        if (isToolNotFound(e) || isMalformedJson(e)) {
+            throw new MalformedToolCallException(e.getMessage(), e);
+        }
+        if (isRecursionLimitExceeded(e)) {
+            throw new RecursionLimitExceededException(e.getMessage());
+        }
+        if (isToolTimeout(e)) {
+            throw new ToolExecutionTimeoutException(e.getMessage());
+        }
+    }
+
+    private static boolean isToolNotFound(Exception e) {
+        String message = e.getMessage();
+        if (message == null) return false;
+
+        return message.matches(".*[Tt]ool\\s+['\\\"]?\\w+['\\\"]?\\s+not\\s+found.*") ||
+               message.contains("Unknown tool") ||
+               message.contains("no tool registered") ||
+               message.contains("Tool '") && message.contains("' not found");
+    }
+
+    private static boolean isMalformedJson(Exception e) {
+        return e.getCause() instanceof com.fasterxml.jackson.core.JsonParseException ||
+               (e.getMessage() != null && (e.getMessage().contains("JSON") ||
+                                          e.getMessage().contains("parse")));
+    }
+
+    private static boolean isRecursionLimitExceeded(Exception e) {
+        String message = e.getMessage();
+        return message != null && (message.contains("recursion") ||
+                                   message.contains("limit exceeded") ||
+                                   message.contains("max iterations"));
+    }
+
+    private static boolean isToolTimeout(Exception e) {
+        return e instanceof TimeoutException ||
+               (e.getMessage() != null && e.getMessage().contains("timeout"));
     }
 }
