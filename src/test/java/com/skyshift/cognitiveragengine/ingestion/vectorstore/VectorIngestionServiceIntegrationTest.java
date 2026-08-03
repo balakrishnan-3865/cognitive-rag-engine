@@ -34,7 +34,7 @@ class VectorIngestionServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        service = new VectorIngestionService(vectorStore, objectMapper, 10);
+        service = new VectorIngestionService(vectorStore, objectMapper, 10, new EmbeddingBatchExecutor(vectorStore));
     }
 
     @Test
@@ -262,7 +262,8 @@ class VectorIngestionServiceIntegrationTest {
     @Test
     @DisplayName("Should stop processing on first batch failure after successful delete")
     void testFailureStopsProcessing() {
-        VectorIngestionService smallBatchService = new VectorIngestionService(vectorStore, objectMapper, 2);
+        VectorIngestionService smallBatchService =
+                new VectorIngestionService(vectorStore, objectMapper, 2, new EmbeddingBatchExecutor(vectorStore));
 
         doThrow(new RuntimeException("VectorStore add error"))
                 .when(vectorStore).add(anyList());

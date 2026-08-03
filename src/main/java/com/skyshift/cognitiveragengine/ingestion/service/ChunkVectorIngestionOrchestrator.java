@@ -12,8 +12,6 @@ import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.Elasticse
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -25,16 +23,19 @@ public class ChunkVectorIngestionOrchestrator {
     private final DocumentMapper documentMapper;
     private final VectorIngestionService vectorIngestionService;
     private final ElasticsearchChunkIndexService elasticsearchChunkIndexService;
+    private final VectorEmbeddingTransactionExecutor vectorEmbeddingTransactionExecutor;
 
     public ChunkVectorIngestionOrchestrator(
             DocumentChunkMapper documentChunkMapper,
             DocumentMapper documentMapper,
             VectorIngestionService vectorIngestionService,
-            ElasticsearchChunkIndexService elasticsearchChunkIndexService) {
+            ElasticsearchChunkIndexService elasticsearchChunkIndexService,
+            VectorEmbeddingTransactionExecutor vectorEmbeddingTransactionExecutor) {
         this.documentChunkMapper = documentChunkMapper;
         this.documentMapper = documentMapper;
         this.vectorIngestionService = vectorIngestionService;
         this.elasticsearchChunkIndexService = elasticsearchChunkIndexService;
+        this.vectorEmbeddingTransactionExecutor = vectorEmbeddingTransactionExecutor;
     }
 
     public void ingestVectorsAndIndexChunks(Long documentId, Long groupId) {
@@ -54,7 +55,7 @@ public class ChunkVectorIngestionOrchestrator {
 
         try {
             List<DocumentChunkEntity> chunks = fetchDocumentChunks(documentId, groupId);
-            embedAndStoreVectors(documentId, chunks);
+            vectorEmbeddingTransactionExecutor.embedAndStoreVectors(documentId, chunks);
             indexInElasticsearch(documentId, chunks);
             markDocumentAsReady(documentId);
             log.info("Ingestion pipeline completed successfully: documentId={}, totalChunks={}",
@@ -78,19 +79,6 @@ public class ChunkVectorIngestionOrchestrator {
                          "Manual intervention required to resolve orphaned ingestion state.",
                          documentId, statusUpdateError);
             }
-        }
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void embedAndStoreVectors(Long documentId, List<DocumentChunkEntity> chunks) {
-        try {
-            vectorIngestionService.embedAndStoreDocumentChunks(documentId, chunks);
-
-        } catch (NoChunksFoundException exception) {
-            throw exception;
-        } catch (Exception exception) {
-            log.error("pgVector stage failed: documentId={}, error={}", documentId, exception.getMessage());
-            throw new BusinessException("Vector embedding failed: " + exception.getMessage(), exception);
         }
     }
 

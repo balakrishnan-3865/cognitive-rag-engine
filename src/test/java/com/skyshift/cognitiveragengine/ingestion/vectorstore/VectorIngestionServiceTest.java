@@ -34,7 +34,7 @@ class VectorIngestionServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         objectMapper = new ObjectMapper();
-        service = new VectorIngestionService(vectorStore, objectMapper, 100);
+        service = new VectorIngestionService(vectorStore, objectMapper, 100, new EmbeddingBatchExecutor(vectorStore));
     }
 
     @Test
@@ -189,7 +189,8 @@ class VectorIngestionServiceTest {
     @Test
     @DisplayName("Should batch documents correctly")
     void testBatchingWithSmallBatchSize() {
-        VectorIngestionService smallBatchService = new VectorIngestionService(vectorStore, objectMapper, 2);
+        VectorIngestionService smallBatchService =
+                new VectorIngestionService(vectorStore, objectMapper, 2, new EmbeddingBatchExecutor(vectorStore));
 
         List<DocumentChunkEntity> chunks = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {

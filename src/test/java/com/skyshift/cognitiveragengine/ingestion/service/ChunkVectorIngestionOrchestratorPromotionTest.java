@@ -44,12 +44,16 @@ class ChunkVectorIngestionOrchestratorPromotionTest {
     @Mock
     private ElasticsearchChunkIndexService elasticsearchChunkIndexService;
 
+    @Mock
+    private VectorEmbeddingTransactionExecutor vectorEmbeddingTransactionExecutor;
+
     private ChunkVectorIngestionOrchestrator orchestrator;
 
     @BeforeEach
     void setUp() {
         orchestrator = new ChunkVectorIngestionOrchestrator(
-            documentChunkMapper, documentMapper, vectorIngestionService, elasticsearchChunkIndexService);
+            documentChunkMapper, documentMapper, vectorIngestionService, elasticsearchChunkIndexService,
+            vectorEmbeddingTransactionExecutor);
     }
 
     @Test

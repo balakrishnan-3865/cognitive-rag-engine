@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skyshift.cognitiveragengine.common.exception.BusinessException;
 import com.skyshift.cognitiveragengine.ingestion.exception.NoChunksFoundException;
 import com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity;
-import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -12,8 +11,6 @@ import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -26,14 +23,17 @@ public class VectorIngestionService {
     private final VectorStore vectorStore;
     private final ObjectMapper objectMapper;
     private final int batchSize;
+    private final EmbeddingBatchExecutor embeddingBatchExecutor;
 
     public VectorIngestionService(
             VectorStore vectorStore,
             ObjectMapper objectMapper,
-            @Value("${spring.ai.vectorstore.pgvector.max-document-batch-size:100}") int batchSize) {
+            @Value("${spring.ai.vectorstore.pgvector.max-document-batch-size:100}") int batchSize,
+            EmbeddingBatchExecutor embeddingBatchExecutor) {
         this.vectorStore = vectorStore;
         this.objectMapper = objectMapper;
         this.batchSize = batchSize;
+        this.embeddingBatchExecutor = embeddingBatchExecutor;
     }
 
     public void embedAndStoreDocumentChunks(Long documentId, List<DocumentChunkEntity> chunks) {
@@ -54,7 +54,7 @@ public class VectorIngestionService {
 
             for (int batchNum = 0; batchNum < totalBatches; batchNum++) {
                 List<Document> batch = batches.get(batchNum);
-                embedBatchWithRetry(batch, batchNum, totalBatches, documentId);
+                embeddingBatchExecutor.embedBatchWithRetry(batch, batchNum, totalBatches, documentId);
             }
 
             log.info("pgVector embedding completed successfully: documentId={}, embeddedChunks={}",
@@ -89,43 +89,6 @@ public class VectorIngestionService {
                 ". Manual vector cleanup required. Error: " + exception.getMessage(),
                 exception);
         }
-    }
-
-    /**
-     * Embeds a single batch with per-batch retry and exponential backoff.
-     * Each batch gets its own transaction (REQUIRES_NEW) for isolation.
-     * If batch fails after max retries, fallback throws BusinessException.
-     * <p>
-     * Retry: 3 max attempts with exponential backoff (100ms initial, 2x multiplier)
-     * Configuration: application.yaml resilience4j.retry.instances.embedding-batch
-     */
-    @Retry(name = "embedding-batch", fallbackMethod = "handleBatchEmbeddingFailure")
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    private void embedBatchWithRetry(List<Document> batch, int batchNum, int totalBatches, Long documentId) {
-        try {
-            vectorStore.add(batch);
-        } catch (Exception e) {
-            log.warn("pgVector batch embedding failed (will retry): batch {}/{}, documentId={}, chunkCount={}",
-                    batchNum + 1, totalBatches, documentId, batch.size());
-            throw new RuntimeException(
-                "Batch " + batchNum + " embedding failed: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Fallback: Called when @Retry exhausts max attempts for a batch.
-     * Throws BusinessException to trigger compensating rollback at orchestrator level.
-     * <p>
-     * Method signature must match embedBatchWithRetry() plus Throwable parameter.
-     */
-    private void handleBatchEmbeddingFailure(
-            List<Document> batch, int batchNum, int totalBatches, Long documentId, Throwable t) {
-        log.error("pgVector batch embedding PERMANENTLY FAILED after max retry attempts: batch {}/{}, " +
-                 "documentId={}, chunkCount={}. Batch will be rolled back at document level.",
-                 batchNum + 1, totalBatches, documentId, batch.size());
-
-        throw new BusinessException(
-            "Batch " + (batchNum + 1) + " embedding failed after max retry attempts: " + t.getMessage(), t);
     }
 
     /**
