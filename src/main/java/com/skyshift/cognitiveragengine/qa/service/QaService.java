@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
+import com.skyshift.cognitiveragengine.common.converter.DocumentToSourceChunkConverter;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.qa.model.KnowledgeSourceResponse;
 import com.skyshift.cognitiveragengine.qa.model.SourceChunk;
@@ -14,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -62,7 +62,7 @@ public class QaService {
 
             log.info("Question answered successfully");
 
-            List<SourceChunk> sourceChunks = convertToSourceChunks(documentBundle.documents());
+            List<SourceChunk> sourceChunks = DocumentToSourceChunkConverter.convertAll(documentBundle.documents());
 
             return new QAResponse(true, "", sourceChunks, response.answer());
 
@@ -96,18 +96,6 @@ public class QaService {
                 .content();
 
         return responseConverter.convertRawResponse(rawResponse);
-    }
-
-    private List<SourceChunk> convertToSourceChunks(List<Document> documents) {
-        return documents.stream()
-                .map(doc -> new SourceChunk(
-                        doc.getText(),
-                        Long.parseLong((String) doc.getMetadata().get("chunkId")),
-                        Long.parseLong((String) doc.getMetadata().get("documentId")),
-                        Integer.parseInt((String) doc.getMetadata().get("chunkNumber")),
-                        Double.parseDouble((String) doc.getMetadata().get("similarity"))
-                ))
-                .collect(Collectors.toList());
     }
 
     private String buildUserPrompt(String query) {

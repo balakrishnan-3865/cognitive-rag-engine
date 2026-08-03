@@ -280,10 +280,10 @@ public class HybridChunkRetrievalService {
         return new Document(
                 chunk.content(),
                 Map.of(
-                        "chunkId", chunk.chunkId().toString(),
-                        "documentId", chunk.documentId().toString(),
-                        "chunkNumber", chunk.chunkNumber().toString(),
-                        "similarity", String.valueOf(chunk.rrfScore()),
+                        "chunkId", chunk.chunkId(),
+                        "documentId", chunk.documentId(),
+                        "chunkNumber", chunk.chunkNumber(),
+                        "similarity", chunk.rrfScore(),
                         "source", "hybrid"
                 )
         );
@@ -296,10 +296,10 @@ public class HybridChunkRetrievalService {
         return new Document(
                 hit.content(),
                 Map.of(
-                        "chunkId", hit.chunkId().toString(),
-                        "documentId", hit.documentId().toString(),
-                        "chunkNumber", hit.chunkNumber().toString(),
-                        "similarity", String.valueOf(hit.score()),
+                        "chunkId", hit.chunkId(),
+                        "documentId", hit.documentId(),
+                        "chunkNumber", hit.chunkNumber(),
+                        "similarity", hit.score(),
                         "source", "dense"
                 )
         );
@@ -312,10 +312,10 @@ public class HybridChunkRetrievalService {
         return new Document(
                 hit.chunkText(),
                 Map.of(
-                        "chunkId", hit.chunkId().toString(),
-                        "documentId", hit.documentId().toString(),
-                        "chunkNumber", hit.chunkIndex().toString(),
-                        "similarity", String.valueOf(hit.normalizedScore()),
+                        "chunkId", hit.chunkId(),
+                        "documentId", hit.documentId(),
+                        "chunkNumber", hit.chunkIndex(),
+                        "similarity", hit.normalizedScore(),
                         "source", "sparse"
                 )
         );

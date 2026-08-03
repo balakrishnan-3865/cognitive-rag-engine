@@ -5,5 +5,6 @@ public record SourceChunk(
         Long chunkId,
         Long documentId,
         Integer chunkNumber,
-        Double similarity
+        Double similarity,
+        String source
 ) {}

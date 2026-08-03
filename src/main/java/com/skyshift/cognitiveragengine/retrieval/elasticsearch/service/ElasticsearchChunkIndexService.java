@@ -212,7 +212,7 @@ public class ElasticsearchChunkIndexService {
         }
 
         try {
-            SearchResponse<SparseChunkDto> searchResponse = buildElserSearchRequest(groupId, topK, query);
+            SearchResponse<SparseChunkDto> searchResponse = buildKeywordSearchRequest(groupId, topK, query);
 
             List<KeywordHit> results = searchResponse.hits().hits().stream()
                     .map(hit -> {
@@ -238,7 +238,7 @@ public class ElasticsearchChunkIndexService {
         }
     }
 
-    private SearchResponse<SparseChunkDto> buildElserSearchRequest(Long groupId, int topK, String query) throws IOException {
+    private SearchResponse<SparseChunkDto> buildKeywordSearchRequest(Long groupId, int topK, String query) throws IOException {
         return elasticsearchClient.search(req -> req
                         .index(CHUNK_INDEX_NAME)
                         .query(q -> q
