@@ -20,6 +20,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class VectorSearchServiceTest {
 
+    private static final List<Long> DOCUMENT_IDS = List.of(1L);
+
     @Mock
     private VectorStore vectorStore;
 
@@ -50,7 +52,7 @@ class VectorSearchServiceTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc1));
 
-        List<VectorHit> results = service.search("test query", 100L, 10);
+        List<VectorHit> results = service.search("test query", 100L, DOCUMENT_IDS, 10);
 
         assertNotNull(results);
         assertEquals(1, results.size());
@@ -84,7 +86,7 @@ class VectorSearchServiceTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc));
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(1, results.size());
         assertEquals(0.0, results.get(0).score());
@@ -93,50 +95,50 @@ class VectorSearchServiceTest {
     @Test
     void testSearchWithEmptyQuery_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.search("", 100L, 10));
+                service.search("", 100L, DOCUMENT_IDS, 10));
     }
 
     @Test
     void testSearchWithNullQuery_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.search(null, 100L, 10));
+                service.search(null, 100L, DOCUMENT_IDS, 10));
     }
 
     @Test
     void testSearchWithQueryExceedingMaxLength_ThrowsIllegalArgumentException() {
         String longQuery = "a".repeat(2001);
         assertThrows(IllegalArgumentException.class, () ->
-                service.search(longQuery, 100L, 10));
+                service.search(longQuery, 100L, DOCUMENT_IDS, 10));
     }
 
     @Test
     void testSearchWithNullGroupId_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.search("query", null, 10));
+                service.search("query", null, DOCUMENT_IDS, 10));
     }
 
     @Test
     void testSearchWithNegativeGroupId_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.search("query", -1L, 10));
+                service.search("query", -1L, DOCUMENT_IDS, 10));
     }
 
     @Test
     void testSearchWithZeroGroupId_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.search("query", 0L, 10));
+                service.search("query", 0L, DOCUMENT_IDS, 10));
     }
 
     @Test
     void testSearchWithTopKZero_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.search("query", 100L, 0));
+                service.search("query", 100L, DOCUMENT_IDS, 0));
     }
 
     @Test
     void testSearchWithTopKExceedingMax_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.search("query", 100L, 1001));
+                service.search("query", 100L, DOCUMENT_IDS, 1001));
     }
 
     @Test
@@ -160,7 +162,7 @@ class VectorSearchServiceTest {
                 .thenReturn(List.of(doc));
 
         VectorSearchException exception = assertThrows(VectorSearchException.class, () ->
-                service.search("query", 100L, 10));
+                service.search("query", 100L, DOCUMENT_IDS, 10));
 
         assertTrue(exception.getMessage().contains("Cross-tenant violation"));
     }
@@ -184,7 +186,7 @@ class VectorSearchServiceTest {
                 .thenReturn(List.of(doc));
 
         VectorSearchException exception = assertThrows(VectorSearchException.class, () ->
-                service.search("query", 100L, 10));
+                service.search("query", 100L, DOCUMENT_IDS, 10));
 
         assertTrue(exception.getMessage().contains("Required metadata field"));
     }
@@ -210,7 +212,7 @@ class VectorSearchServiceTest {
                 .thenReturn(List.of(doc));
 
         VectorSearchException exception = assertThrows(VectorSearchException.class, () ->
-                service.search("query", 100L, 10));
+                service.search("query", 100L, DOCUMENT_IDS, 10));
 
         assertTrue(exception.getMessage().contains("Failed to convert document metadata types"));
     }
@@ -239,7 +241,7 @@ class VectorSearchServiceTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc2, doc1));
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(2, results.size());
         assertEquals(0.95, results.get(0).score());
@@ -251,7 +253,7 @@ class VectorSearchServiceTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(Collections.emptyList());
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertNotNull(results);
         assertTrue(results.isEmpty());
@@ -263,7 +265,7 @@ class VectorSearchServiceTest {
                 .thenThrow(new RuntimeException("VectorStore error"));
 
         VectorSearchException exception = assertThrows(VectorSearchException.class, () ->
-                service.search("query", 100L, 10));
+                service.search("query", 100L, DOCUMENT_IDS, 10));
 
         assertTrue(exception.getMessage().contains("Vector search failed"));
         assertNotNull(exception.getCause());
@@ -289,7 +291,7 @@ class VectorSearchServiceTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc));
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(1, results.size());
         assertEquals(1L, results.get(0).documentId());
@@ -300,8 +302,17 @@ class VectorSearchServiceTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(Collections.emptyList());
 
-        service.search("test query", 100L, 10);
+        service.search("test query", 100L, DOCUMENT_IDS, 10);
 
         verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
+    }
+
+    @Test
+    void testSearchWithEmptyDocumentIds_SkipsVectorStoreAndReturnsEmpty() {
+        List<VectorHit> results = service.search("test query", 100L, List.of(), 10);
+
+        assertNotNull(results);
+        assertTrue(results.isEmpty());
+        verifyNoInteractions(vectorStore);
     }
 }

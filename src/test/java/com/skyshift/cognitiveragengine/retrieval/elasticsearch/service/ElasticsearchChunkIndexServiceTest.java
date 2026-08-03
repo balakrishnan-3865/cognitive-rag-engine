@@ -113,7 +113,7 @@ class ElasticsearchChunkIndexServiceTest {
 
         Thread.sleep(1000);
 
-        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", groupId1, 10);
+        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", groupId1, List.of(docId1), 10);
 
         assertTrue(results.size() > 0, "Should find chunks for groupId1");
         assertTrue(results.stream().allMatch(hit -> hit.rawScore() >= 0),
@@ -128,7 +128,7 @@ class ElasticsearchChunkIndexServiceTest {
 
         Thread.sleep(1000);
 
-        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", TEST_GROUP_ID, 5);
+        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", TEST_GROUP_ID, List.of(TEST_DOCUMENT_ID), 5);
 
         assertTrue(results.size() <= 5, "Results should not exceed topK limit");
     }
@@ -136,14 +136,17 @@ class ElasticsearchChunkIndexServiceTest {
     @Test
     @DisplayName("Should return empty results for invalid search parameters")
     void testSearchWithInvalidParameters() throws IOException {
-        List<KeywordHit> emptyQuery = elasticsearchChunkIndexService.searchChunks("", TEST_GROUP_ID, 10);
+        List<KeywordHit> emptyQuery = elasticsearchChunkIndexService.searchChunks("", TEST_GROUP_ID, List.of(TEST_DOCUMENT_ID), 10);
         assertTrue(emptyQuery.isEmpty(), "Should return empty for empty query");
 
-        List<KeywordHit> nullGroupId = elasticsearchChunkIndexService.searchChunks("test", null, 10);
+        List<KeywordHit> nullGroupId = elasticsearchChunkIndexService.searchChunks("test", null, List.of(TEST_DOCUMENT_ID), 10);
         assertTrue(nullGroupId.isEmpty(), "Should return empty for null groupId");
 
-        List<KeywordHit> invalidTopK = elasticsearchChunkIndexService.searchChunks("test", TEST_GROUP_ID, 0);
+        List<KeywordHit> invalidTopK = elasticsearchChunkIndexService.searchChunks("test", TEST_GROUP_ID, List.of(TEST_DOCUMENT_ID), 0);
         assertTrue(invalidTopK.isEmpty(), "Should return empty for invalid topK");
+
+        List<KeywordHit> emptyDocumentIds = elasticsearchChunkIndexService.searchChunks("test", TEST_GROUP_ID, List.of(), 10);
+        assertTrue(emptyDocumentIds.isEmpty(), "Should return empty for empty documentIds");
     }
 
     @Test
@@ -201,7 +204,7 @@ class ElasticsearchChunkIndexServiceTest {
 
         Thread.sleep(1000);
 
-        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", TEST_GROUP_ID, 10);
+        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", TEST_GROUP_ID, List.of(TEST_DOCUMENT_ID), 10);
 
         assertTrue(results.stream()
                         .allMatch(hit -> hit.normalizedScore() >= 0D && hit.normalizedScore() <= 1D),
@@ -211,7 +214,7 @@ class ElasticsearchChunkIndexServiceTest {
     @Test
     @DisplayName("Should handle search with null groupId")
     void testSearchWithNullGroupId() throws IOException {
-        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", null, 10);
+        List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks("test", null, List.of(TEST_DOCUMENT_ID), 10);
         assertTrue(results.isEmpty(), "Should return empty results for null groupId");
     }
 
@@ -248,7 +251,7 @@ class ElasticsearchChunkIndexServiceTest {
         Thread.sleep(1000);
 
         assertDoesNotThrow(() ->
-                elasticsearchChunkIndexService.searchChunks("test-chunk+data", TEST_GROUP_ID, 10));
+                elasticsearchChunkIndexService.searchChunks("test-chunk+data", TEST_GROUP_ID, List.of(TEST_DOCUMENT_ID), 10));
     }
 
     @Test

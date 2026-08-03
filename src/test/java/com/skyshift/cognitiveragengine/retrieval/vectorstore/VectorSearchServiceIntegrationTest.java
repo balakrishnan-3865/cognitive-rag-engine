@@ -19,6 +19,8 @@ import static org.mockito.Mockito.when;
 @SpringBootTest
 class VectorSearchServiceIntegrationTest {
 
+    private static final List<Long> DOCUMENT_IDS = List.of(1L, 2L, 3L, 5L);
+
     @MockBean
     private VectorStore vectorStore;
 
@@ -42,7 +44,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc));
 
-        List<VectorHit> results = service.search("test query", 100L, 10);
+        List<VectorHit> results = service.search("test query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(1, results.size());
         VectorHit hit = results.get(0);
@@ -65,7 +67,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc1));
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(1, results.size());
         assertEquals(100L, results.get(0).groupId());
@@ -88,7 +90,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(batchResults);
 
-        List<VectorHit> results = service.search("query", 100L, 20);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 20);
 
         assertEquals(15, results.size());
         for (int i = 0; i < 15; i++) {
@@ -115,7 +117,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(manyResults.stream().limit(10).toList());
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(10, results.size());
     }
@@ -133,7 +135,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc));
 
-        List<VectorHit> results = service.search("query", 150L, 10);
+        List<VectorHit> results = service.search("query", 150L, DOCUMENT_IDS, 10);
 
         VectorHit hit = results.get(0);
         assertNotNull(hit.id());
@@ -161,7 +163,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc1, doc2, doc3));
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(3, results.size());
         assertEquals(1L, results.get(0).documentId());
@@ -182,7 +184,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc2, doc3, doc1));
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertEquals(3, results.size());
         assertEquals(0.95, results.get(0).score());
@@ -195,7 +197,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(Collections.emptyList());
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         assertNotNull(results);
         assertTrue(results.isEmpty());
@@ -215,7 +217,7 @@ class VectorSearchServiceIntegrationTest {
                 .thenReturn(List.of(doc));
 
         VectorSearchException exception = assertThrows(VectorSearchException.class, () ->
-                service.search("query", 100L, 10));
+                service.search("query", 100L, DOCUMENT_IDS, 10));
 
         assertTrue(exception.getMessage().contains("Cross-tenant violation"));
     }
@@ -236,7 +238,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(results);
 
-        List<VectorHit> searchResults = service.search("query", 100L, 200);
+        List<VectorHit> searchResults = service.search("query", 100L, DOCUMENT_IDS, 200);
 
         assertEquals(200, searchResults.size());
     }
@@ -261,7 +263,7 @@ class VectorSearchServiceIntegrationTest {
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
                 .thenReturn(List.of(doc));
 
-        List<VectorHit> results = service.search("query", 100L, 10);
+        List<VectorHit> results = service.search("query", 100L, DOCUMENT_IDS, 10);
 
         VectorHit hit = results.get(0);
         assertEquals(1L, hit.documentId());

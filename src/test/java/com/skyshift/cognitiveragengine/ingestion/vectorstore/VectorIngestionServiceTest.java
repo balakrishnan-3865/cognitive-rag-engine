@@ -158,8 +158,6 @@ class VectorIngestionServiceTest {
         DocumentChunkEntity chunk = createSampleChunk(1L, 2L, "Text");
         chunk.setChunkNumber(3);
         chunk.setGroupId(4L);
-        chunk.setStartPosition(10);
-        chunk.setEndPosition(50);
 
         service.embedAndStoreDocumentChunks(1L, List.of(chunk));
 
@@ -170,8 +168,6 @@ class VectorIngestionServiceTest {
         assertEquals(3, metadata.get("chunkNumber"));
         assertEquals(1L, metadata.get("documentId"));
         assertEquals(4L, metadata.get("groupId"));
-        assertEquals(10, metadata.get("startPosition"));
-        assertEquals(50, metadata.get("endPosition"));
     }
 
     @Test
@@ -222,7 +218,10 @@ class VectorIngestionServiceTest {
         assertThrows(RuntimeException.class, () ->
                 service.embedAndStoreDocumentChunks(1L, List.of(chunk)));
 
-        verify(vectorStore).delete(any(Filter.Expression.class));
+        // The initial delete fails, which trips the outer catch block; that block
+        // unconditionally attempts a compensating rollback delete as well, so delete
+        // is invoked twice even though both calls fail here.
+        verify(vectorStore, times(2)).delete(any(Filter.Expression.class));
         verify(vectorStore, never()).add(anyList());
     }
 
@@ -237,7 +236,9 @@ class VectorIngestionServiceTest {
         assertThrows(RuntimeException.class, () ->
                 service.embedAndStoreDocumentChunks(1L, List.of(chunk)));
 
-        verify(vectorStore).delete(any(Filter.Expression.class));
+        // Deleted twice: once upfront for idempotency, once more via compensating rollback
+        // after the add() failure, to avoid leaving orphaned/partial vectors behind.
+        verify(vectorStore, times(2)).delete(any(Filter.Expression.class));
     }
 
     @Test
@@ -307,8 +308,6 @@ class VectorIngestionServiceTest {
                 .chunkNumber(chunkNumber.intValue())
                 .chunkText(text)
                 .groupId(1L)
-                .startPosition(0)
-                .endPosition(text.length())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();

@@ -103,8 +103,6 @@ class VectorIngestionServiceIntegrationTest {
         assertEquals(1, metadata.get("chunkNumber"));
         assertEquals(100L, metadata.get("documentId"));
         assertEquals(50L, metadata.get("groupId"));
-        assertEquals(0, metadata.get("startPosition"));
-        assertEquals(29, metadata.get("endPosition"));
         assertEquals("pdf", metadata.get("source"));
         assertEquals(1, metadata.get("pageNumber"));
     }
@@ -115,8 +113,6 @@ class VectorIngestionServiceIntegrationTest {
         DocumentChunkEntity chunk = createSampleChunk(1L, 1L, "Text");
         chunk.setChunkNumber(10);
         chunk.setGroupId(20L);
-        chunk.setStartPosition(100);
-        chunk.setEndPosition(200);
 
         Map<String, Object> jsonMeta = new LinkedHashMap<>();
         jsonMeta.put("language", "en");
@@ -133,8 +129,6 @@ class VectorIngestionServiceIntegrationTest {
         Map<String, Object> metadata = captor.getValue().get(0).getMetadata();
         assertEquals(10, metadata.get("chunkNumber"), "Column field takes precedence");
         assertEquals(20L, metadata.get("groupId"));
-        assertEquals(100, metadata.get("startPosition"));
-        assertEquals(200, metadata.get("endPosition"));
         assertEquals("en", metadata.get("language"));
         assertEquals("positive", metadata.get("sentiment"));
     }
@@ -145,8 +139,6 @@ class VectorIngestionServiceIntegrationTest {
         DocumentChunkEntity chunk = createSampleChunk(1L, 1L, "Text");
         chunk.setChunkNumber(10);
         chunk.setGroupId(20L);
-        chunk.setStartPosition(0);
-        chunk.setEndPosition(4);
 
         service.embedAndStoreDocumentChunks(1L, List.of(chunk));
 
@@ -161,8 +153,6 @@ class VectorIngestionServiceIntegrationTest {
         assertNotNull(metadata.get("chunkNumber"), "chunkNumber required for filtering");
         assertNotNull(metadata.get("documentId"), "documentId required for filtering");
         assertNotNull(metadata.get("groupId"), "groupId required for filtering");
-        assertNotNull(metadata.get("startPosition"), "startPosition required for filtering");
-        assertNotNull(metadata.get("endPosition"), "endPosition required for filtering");
     }
 
     @Test
@@ -251,7 +241,7 @@ class VectorIngestionServiceIntegrationTest {
         assertThrows(Exception.class, () ->
                 service.embedAndStoreDocumentChunks(1L, List.of(chunk)));
 
-        verify(vectorStore).delete(any(Filter.Expression.class));
+        verify(vectorStore, times(2)).delete(any(Filter.Expression.class));
     }
 
     @Test
@@ -265,7 +255,7 @@ class VectorIngestionServiceIntegrationTest {
         assertThrows(RuntimeException.class, () ->
                 service.embedAndStoreDocumentChunks(1L, List.of(chunk)));
 
-        verify(vectorStore).delete(any(Filter.Expression.class));
+        verify(vectorStore, times(2)).delete(any(Filter.Expression.class));
         verify(vectorStore, never()).add(anyList());
     }
 
@@ -282,7 +272,7 @@ class VectorIngestionServiceIntegrationTest {
         assertThrows(Exception.class, () ->
                 smallBatchService.embedAndStoreDocumentChunks(100L, chunks));
 
-        verify(vectorStore).delete(any(Filter.Expression.class));
+        verify(vectorStore, times(2)).delete(any(Filter.Expression.class));
         verify(vectorStore, times(1)).add(anyList());
     }
 
@@ -313,8 +303,6 @@ class VectorIngestionServiceIntegrationTest {
                 .chunkNumber(1)
                 .chunkText("This is a complex test chunk")
                 .groupId(50L)
-                .startPosition(0)
-                .endPosition(29)
                 .metadataJson(convertToJson(metadata))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())

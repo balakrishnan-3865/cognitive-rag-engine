@@ -27,4 +27,12 @@ public interface DocumentMapper {
         @Param("documentId") Long documentId,
         @Param("fromStatus") String fromStatus,
         @Param("toStatus") String toStatus);
+
+    int flipCurrentVersion(@Param("fromId") Long fromId, @Param("toId") Long toId);
+
+    List<Long> findCurrentReadyDocumentIds(@Param("groupId") Long groupId);
+
+    DocumentEntity findCurrentVersionInLineage(
+        @Param("rootDocumentId") Long rootDocumentId,
+        @Param("excludeId") Long excludeId);
 }

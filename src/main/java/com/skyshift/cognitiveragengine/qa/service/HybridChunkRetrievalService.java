@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
+import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.qa.exception.RetrievalException;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
@@ -32,6 +33,7 @@ public class HybridChunkRetrievalService {
 
     private final VectorSearchService vectorSearchService;
     private final ElasticsearchChunkIndexService elasticsearchChunkIndexService;
+    private final DocumentService documentService;
     private final RetrievalProperties retrievalProperties;
     private final ObservationRegistry observationRegistry;
     private final DistributionSummary denseHitsSummary;
@@ -45,12 +47,14 @@ public class HybridChunkRetrievalService {
     public HybridChunkRetrievalService(
             VectorSearchService vectorSearchService,
             ElasticsearchChunkIndexService elasticsearchChunkIndexService,
+            DocumentService documentService,
             RetrievalProperties retrievalProperties,
             ObservationRegistry observationRegistry,
             MeterRegistry meterRegistry
     ) {
         this.vectorSearchService = vectorSearchService;
         this.elasticsearchChunkIndexService = elasticsearchChunkIndexService;
+        this.documentService = documentService;
         this.retrievalProperties = retrievalProperties;
         this.observationRegistry = observationRegistry;
         this.denseHitsSummary = DistributionSummary.builder("rag.retrieval.dense.hits")
@@ -95,8 +99,14 @@ public class HybridChunkRetrievalService {
                 .lowCardinalityKeyValue("groupId", String.valueOf(groupId));
 
         return observation.observe(() -> {
-            RetrievalResult denseResult = attemptDenseSearch(query, groupId);
-            RetrievalResult sparseResult = attemptSparseSearch(query, groupId);
+            List<Long> documentIds = documentService.findCurrentReadyDocumentIds(groupId);
+            if (documentIds.isEmpty()) {
+                log.debug("No current READY documents for groupId={}, skipping retrieval", groupId);
+                return new DocumentBundle(List.of());
+            }
+
+            RetrievalResult denseResult = attemptDenseSearch(query, groupId, documentIds);
+            RetrievalResult sparseResult = attemptSparseSearch(query, groupId, documentIds);
 
             DocumentBundle bundle = handleRetrievalOutcome(
                     denseResult, sparseResult, query, groupId, topK, observation);
@@ -109,10 +119,10 @@ public class HybridChunkRetrievalService {
      * Attempts dense (pgvector) retrieval independently.
      * Returns success with results or failure with exception, never throws.
      */
-    private RetrievalResult attemptDenseSearch(String query, Long groupId) {
+    private RetrievalResult attemptDenseSearch(String query, Long groupId, List<Long> documentIds) {
         try {
             int topK = retrievalProperties.getDense().getTopK();
-            List<VectorHit> results = vectorSearchService.search(query, groupId, topK);
+            List<VectorHit> results = vectorSearchService.search(query, groupId, documentIds, topK);
             log.debug("Dense search succeeded: {} hits for groupId={}", results.size(), groupId);
             return RetrievalResult.success("dense", results);
         } catch (Exception e) {
@@ -125,10 +135,10 @@ public class HybridChunkRetrievalService {
      * Attempts sparse (Elasticsearch) retrieval independently.
      * Returns success with results or failure with exception, never throws.
      */
-    private RetrievalResult attemptSparseSearch(String query, Long groupId) {
+    private RetrievalResult attemptSparseSearch(String query, Long groupId, List<Long> documentIds) {
         try {
             int topK = retrievalProperties.getSparse().getTopK();
-            List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks(query, groupId, topK);
+            List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks(query, groupId, documentIds, topK);
             log.debug("Sparse search succeeded: {} hits for groupId={}", results.size(), groupId);
             return RetrievalResult.success("sparse", results);
         } catch (Exception e) {

@@ -69,6 +69,10 @@ public class ParseAndChunkService {
             List<Document> parsedDocuments = reader.get();
             log.info("Parsed {} document sections", parsedDocuments.size());
 
+            if(parsedDocuments.isEmpty()) {
+                throw new IllegalStateException("Parsed documents are empty or null for documentId=" + documentId);
+            }
+
             List<DocumentChunkEntity> chunks = chunkingService.chunk(parsedDocuments, documentId, groupId);
             log.info("Created {} chunks from {} sections", chunks.size(), parsedDocuments.size());
 

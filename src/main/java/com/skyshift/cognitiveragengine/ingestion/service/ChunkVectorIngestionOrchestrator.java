@@ -143,12 +143,42 @@ public class ChunkVectorIngestionOrchestrator {
     private void markDocumentAsReady(Long documentId) {
         try {
             documentMapper.updateStatus(documentId, DocumentStatus.READY.name());
+            promoteToCurrentVersionIfNewVersion(documentId);
 
         } catch (Exception error) {
             log.error("CRITICAL: Ingestion succeeded but failed to mark READY: documentId={}. " +
                      "Data is ingested (pgVector/Elasticsearch). Document remains in INJECTING state. " +
                      "Scheduled recovery job will resolve this.",
                      documentId, error);
+        }
+    }
+
+    /**
+     * If this document is a version upload (has a rootDocumentId), promote it to the current
+     * version now that it's READY, superseding whatever was previously current in its lineage.
+     * No-op for regular (non-versioned) documents.
+     */
+    private void promoteToCurrentVersionIfNewVersion(Long documentId) {
+        DocumentEntity document = documentMapper.selectById(documentId);
+        if (document == null || document.getRootDocumentId() == null) {
+            return;
+        }
+
+        DocumentEntity previousCurrent =
+            documentMapper.findCurrentVersionInLineage(document.getRootDocumentId(), documentId);
+        if (previousCurrent == null) {
+            log.warn("No previous current version found for lineage: rootDocumentId={}, documentId={}",
+                document.getRootDocumentId(), documentId);
+            return;
+        }
+
+        int flipped = documentMapper.flipCurrentVersion(previousCurrent.getId(), documentId);
+        if (flipped == 0) {
+            log.warn("Failed to promote documentId={} to current version " +
+                     "(lost race with a concurrent version upload for the same lineage)", documentId);
+        } else {
+            log.info("Promoted documentId={} to current version, superseding documentId={}",
+                documentId, previousCurrent.getId());
         }
     }
 

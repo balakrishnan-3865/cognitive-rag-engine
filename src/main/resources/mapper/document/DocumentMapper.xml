@@ -17,6 +17,9 @@
             status,
             deleted,
             failure_reason,
+            root_document_id,
+            version_number,
+            is_current_version,
             uploaded_at,
             processed_at,
             created_at,
@@ -34,6 +37,9 @@
             #{status},
             #{deleted},
             #{failureReason},
+            #{rootDocumentId},
+            #{versionNumber},
+            #{isCurrentVersion},
             #{uploadedAt},
             #{processedAt},
             #{createdAt},
@@ -56,6 +62,9 @@
             status,
             deleted,
             failure_reason,
+            root_document_id,
+            version_number,
+            is_current_version,
             uploaded_at,
             processed_at,
             created_at,
@@ -81,6 +90,9 @@
             status,
             deleted,
             failure_reason,
+            root_document_id,
+            version_number,
+            is_current_version,
             uploaded_at,
             processed_at,
             created_at,
@@ -105,6 +117,9 @@
             status,
             deleted,
             failure_reason,
+            root_document_id,
+            version_number,
+            is_current_version,
             uploaded_at,
             processed_at,
             created_at,
@@ -131,4 +146,50 @@
         SET status = #{toStatus}, updated_at = NOW()
         WHERE id = #{documentId} AND status = #{fromStatus}
     </update>
+
+    <update id="flipCurrentVersion">
+        UPDATE documents
+        SET is_current_version = CASE WHEN id = #{toId} THEN true ELSE false END,
+            updated_at = NOW()
+        WHERE id IN (#{fromId}, #{toId})
+        AND EXISTS (SELECT 1 FROM documents d WHERE d.id = #{fromId} AND d.is_current_version = true)
+    </update>
+
+    <select id="findCurrentReadyDocumentIds" resultType="java.lang.Long">
+        SELECT id
+        FROM documents
+        WHERE group_id = #{groupId}
+        AND status = 'READY'
+        AND is_current_version = true
+        AND deleted = false
+    </select>
+
+    <select id="findCurrentVersionInLineage" resultType="com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity">
+        SELECT
+            id,
+            group_id,
+            uploaded_user_id,
+            file_name,
+            file_extension,
+            context_type,
+            file_size,
+            file_hash,
+            storage_bucket,
+            storage_object_key,
+            status,
+            deleted,
+            failure_reason,
+            root_document_id,
+            version_number,
+            is_current_version,
+            uploaded_at,
+            processed_at,
+            created_at,
+            updated_at
+        FROM documents
+        WHERE (id = #{rootDocumentId} OR root_document_id = #{rootDocumentId})
+        AND id != #{excludeId}
+        AND is_current_version = true
+        AND deleted = false
+    </select>
 </mapper>

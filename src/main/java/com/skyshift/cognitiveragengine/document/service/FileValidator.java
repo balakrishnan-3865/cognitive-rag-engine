@@ -33,10 +33,10 @@ public class FileValidator {
         }
 
         // 3. Validate file size
-        if (file.getSize() > uploadProperties.maxFileSize()) {
+        if (file.getSize() > uploadProperties.maxFileSize().toBytes()) {
             throw new DocumentUploadException(
                 String.format("File size %d exceeds maximum allowed %d",
-                    file.getSize(), uploadProperties.maxFileSize()),
+                    file.getSize(), uploadProperties.maxFileSize().toBytes()),
                 "FILE_TOO_LARGE"
             );
         }

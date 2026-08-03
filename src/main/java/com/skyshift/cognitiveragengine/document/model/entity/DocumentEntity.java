@@ -24,6 +24,9 @@ public class DocumentEntity {
     private String status;
     private Boolean deleted;
     private String failureReason;
+    private Long rootDocumentId;
+    private Integer versionNumber;
+    private Boolean isCurrentVersion;
     private LocalDateTime uploadedAt;
     private LocalDateTime processedAt;
     private LocalDateTime createdAt;

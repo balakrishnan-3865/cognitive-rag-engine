@@ -108,10 +108,10 @@ storage:
 
 # QA Configuration (Stage 3)
 qa:
-  top-k-default: ${QA_TOP_K_DEFAULT:20}
+  top-k: ${QA_TOP_K_DEFAULT:3}
   similarity-threshold: ${QA_SIMILARITY_THRESHOLD:0.5}
   chat-timeout-ms: ${QA_CHAT_TIMEOUT_MS:30000}
-  temperature: ${QA_TEMPERATURE:0.7}
+  temperature: ${QA_TEMPERATURE:0.1}
   max-tokens: ${QA_MAX_TOKENS:2000}
 
 # Hybrid Search Configuration (Stage 4 - Dense + Sparse RRF Fusion)

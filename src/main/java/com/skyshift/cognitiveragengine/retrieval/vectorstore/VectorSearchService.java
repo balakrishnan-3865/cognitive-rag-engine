@@ -10,6 +10,7 @@ import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -26,16 +27,23 @@ public class VectorSearchService {
         this.vectorStore = vectorStore;
     }
 
-    public List<VectorHit> search(String query, Long groupId, int topK) {
+    public List<VectorHit> search(String query, Long groupId, List<Long> documentIds, int topK) {
         log.info("Starting vector search: query='{}', groupId={}, topK={}",
                 query, groupId, topK);
 
         validateSearchParams(query, groupId, topK);
 
+        if (documentIds.isEmpty()) {
+            log.debug("No current READY documents for groupId={}, skipping vector search", groupId);
+            return List.of();
+        }
+
         try {
-            Filter.Expression filter = new FilterExpressionBuilder()
-                    .eq("groupId", groupId)
-                    .build();
+            FilterExpressionBuilder b = new FilterExpressionBuilder();
+            Filter.Expression filter = b.and(
+                    b.eq("groupId", groupId),
+                    b.in("documentId", new ArrayList<Object>(documentIds))
+            ).build();
 
             SearchRequest searchRequest = SearchRequest.builder()
                     .query(query)

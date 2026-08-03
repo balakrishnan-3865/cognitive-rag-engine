@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.common.exception;
 
+import com.skyshift.cognitiveragengine.document.exception.DocumentVersionConflictException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,21 @@ public class GlobalExceptionHandler {
             request.getDescription(false).replace("uri=", "")
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DocumentVersionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleDocumentVersionConflictException(
+        DocumentVersionConflictException ex,
+        WebRequest request
+    ) {
+        log.error("Document version conflict: {}", ex.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(
+            HttpStatus.CONFLICT.value(),
+            HttpStatus.CONFLICT.getReasonPhrase(),
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(StorageException.class)

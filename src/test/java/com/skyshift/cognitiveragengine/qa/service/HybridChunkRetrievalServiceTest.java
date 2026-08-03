@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
+import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.qa.exception.RetrievalException;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
@@ -28,12 +29,16 @@ class HybridChunkRetrievalServiceTest {
 
     private static final int DENSE_POOL_SIZE = 20;
     private static final int SPARSE_POOL_SIZE = 20;
+    private static final List<Long> DOCUMENT_IDS = List.of(10L);
 
     @Mock
     private VectorSearchService vectorSearchService;
 
     @Mock
     private ElasticsearchChunkIndexService elasticsearchChunkIndexService;
+
+    @Mock
+    private DocumentService documentService;
 
     private RetrievalProperties retrievalProperties;
     private HybridChunkRetrievalService service;
@@ -47,10 +52,12 @@ class HybridChunkRetrievalServiceTest {
         service = new HybridChunkRetrievalService(
                 vectorSearchService,
                 elasticsearchChunkIndexService,
+                documentService,
                 retrievalProperties,
                 ObservationRegistry.NOOP,
                 new SimpleMeterRegistry()
         );
+        when(documentService.findCurrentReadyDocumentIds(100L)).thenReturn(DOCUMENT_IDS);
     }
 
     // ========== SUCCESS CASES ==========
@@ -66,14 +73,14 @@ class HybridChunkRetrievalServiceTest {
                 keywordHit(10L, 3L, "Sparse-only chunk")
         );
 
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE)).thenReturn(denseHits);
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE)).thenReturn(sparseHits);
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenReturn(denseHits);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE)).thenReturn(sparseHits);
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
 
         List<Document> documents = bundle.documents();
         assertEquals(3, documents.size());
-        assertEquals("2", documents.get(0).getMetadata().get("chunkNumber"));
+        assertEquals(2, documents.get(0).getMetadata().get("chunkNumber"));
         assertEquals("hybrid", documents.get(0).getMetadata().get("source"));
     }
 
@@ -85,8 +92,8 @@ class HybridChunkRetrievalServiceTest {
                 vectorHit(10L, 3L, "Chunk 3")
         );
 
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE)).thenReturn(denseHits);
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE)).thenReturn(List.of());
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenReturn(denseHits);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE)).thenReturn(List.of());
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 2);
 
@@ -97,8 +104,8 @@ class HybridChunkRetrievalServiceTest {
     void testRetrieveRelevantChunks_DenseWithEmptySparse_StillUseHybridRRF() throws IOException {
         List<VectorHit> denseHits = List.of(vectorHit(10L, 1L, "Dense chunk"));
 
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE)).thenReturn(denseHits);
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE)).thenReturn(List.of());
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenReturn(denseHits);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE)).thenReturn(List.of());
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
 
@@ -115,9 +122,9 @@ class HybridChunkRetrievalServiceTest {
                 keywordHit(10L, 1L, "Sparse-only chunk")
         );
 
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE))
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE))
                 .thenThrow(new RuntimeException("Dense search failed"));
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE))
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE))
                 .thenReturn(sparseHits);
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
@@ -129,12 +136,22 @@ class HybridChunkRetrievalServiceTest {
 
     @Test
     void testRetrieveRelevantChunks_NoChunks_IsNotAnError() throws IOException {
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE)).thenReturn(List.of());
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE)).thenReturn(List.of());
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenReturn(List.of());
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE)).thenReturn(List.of());
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
 
         assertTrue(bundle.documents().isEmpty());
+    }
+
+    @Test
+    void testRetrieveRelevantChunks_NoCurrentReadyDocuments_SkipsSearchAndReturnsEmpty() {
+        when(documentService.findCurrentReadyDocumentIds(100L)).thenReturn(List.of());
+
+        DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
+
+        assertTrue(bundle.documents().isEmpty());
+        verifyNoInteractions(vectorSearchService, elasticsearchChunkIndexService);
     }
 
     // ========== FAILURE CASES ==========
@@ -144,8 +161,8 @@ class HybridChunkRetrievalServiceTest {
         RuntimeException denseError = new RuntimeException("Dense connection failed");
         RuntimeException sparseError = new RuntimeException("Elasticsearch unavailable");
 
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE)).thenThrow(denseError);
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE))
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenThrow(denseError);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE))
                 .thenThrow(sparseError);
 
         RetrievalException exception = assertThrows(RetrievalException.class, () ->
@@ -163,15 +180,15 @@ class HybridChunkRetrievalServiceTest {
     void testRetrieveRelevantChunks_DocumentMetadataContract() throws IOException {
         List<VectorHit> denseHits = List.of(vectorHit(10L, 1L, "Content"));
 
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE)).thenReturn(denseHits);
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE)).thenReturn(List.of());
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenReturn(denseHits);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE)).thenReturn(List.of());
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
 
         Document document = bundle.documents().get(0);
-        assertEquals("1", document.getMetadata().get("chunkId"));
-        assertEquals("10", document.getMetadata().get("documentId"));
-        assertEquals("1", document.getMetadata().get("chunkNumber"));
+        assertEquals(1L, document.getMetadata().get("chunkId"));
+        assertEquals(10L, document.getMetadata().get("documentId"));
+        assertEquals(1, document.getMetadata().get("chunkNumber"));
         assertNotNull(document.getMetadata().get("similarity"));
         assertEquals("hybrid", document.getMetadata().get("source"));
     }
@@ -181,8 +198,8 @@ class HybridChunkRetrievalServiceTest {
         List<VectorHit> denseHits = List.of(vectorHit(10L, 1L, "Content"));
         List<KeywordHit> sparseHits = List.of(keywordHit(10L, 1L, "Content"));
 
-        when(vectorSearchService.search("query", 100L, DENSE_POOL_SIZE)).thenReturn(denseHits);
-        when(elasticsearchChunkIndexService.searchChunks("query", 100L, SPARSE_POOL_SIZE)).thenReturn(sparseHits);
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenReturn(denseHits);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE)).thenReturn(sparseHits);
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
 

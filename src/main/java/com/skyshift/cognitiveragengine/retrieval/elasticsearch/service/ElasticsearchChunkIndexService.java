@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.retrieval.elasticsearch.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
@@ -204,15 +205,16 @@ public class ElasticsearchChunkIndexService {
             " in file: " + fileName + ". Error: " + t.getMessage(), t);
     }
 
-    public List<KeywordHit> searchChunks(String query, Long groupId, int topK) throws IOException {
+    public List<KeywordHit> searchChunks(String query, Long groupId, List<Long> documentIds, int topK) throws IOException {
         ensureIndexExists();
 
-        if (query == null || query.trim().isEmpty() || groupId == null || groupId <= 0L || topK <= 0) {
+        if (query == null || query.trim().isEmpty() || groupId == null || groupId <= 0L || topK <= 0
+                || documentIds.isEmpty()) {
             return new ArrayList<>();
         }
 
         try {
-            SearchResponse<SparseChunkDto> searchResponse = buildKeywordSearchRequest(groupId, topK, query);
+            SearchResponse<SparseChunkDto> searchResponse = buildKeywordSearchRequest(groupId, documentIds, topK, query);
 
             List<KeywordHit> results = searchResponse.hits().hits().stream()
                     .map(hit -> {
@@ -238,21 +240,36 @@ public class ElasticsearchChunkIndexService {
         }
     }
 
-    private SearchResponse<SparseChunkDto> buildKeywordSearchRequest(Long groupId, int topK, String query) throws IOException {
+    private SearchResponse<SparseChunkDto> buildKeywordSearchRequest(
+            Long groupId, List<Long> documentIds, int topK, String query) throws IOException {
         return elasticsearchClient.search(req -> req
                         .index(CHUNK_INDEX_NAME)
                         .query(q -> q
                                 .bool(b -> b
-                                        .must(m -> m
+                                        // Non-scoring scope filters: cached by ES, do not affect BM25 relevance
+                                        .filter(f -> f
                                                 .term(t -> t
                                                         .field("groupId")
                                                         .value(v -> v.longValue(groupId))
                                                 )
                                         )
+                                        .filter(f -> f
+                                                .terms(t -> t
+                                                        .field("documentId")
+                                                        .terms(tv -> tv.value(documentIds.stream()
+                                                                .map(FieldValue::of)
+                                                                .toList()))
+                                                )
+                                        )
+                                        // Scoring clause: actual BM25 relevance match against the query.
+                                        // minimumShouldMatch prevents chunks that only share a common/stopword
+                                        // token with the query from matching (default OR operator otherwise
+                                        // matches nearly every chunk in scope).
                                         .must(m -> m
-                                                .multiMatch(mm -> mm
+                                                .match(mt -> mt
+                                                        .field("chunkText")
                                                         .query(query)
-                                                        .fields("chunkText", "fileName")
+                                                        .minimumShouldMatch("80%")
                                                 )
                                         )
                                 )
