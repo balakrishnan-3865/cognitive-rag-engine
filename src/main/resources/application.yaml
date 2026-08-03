@@ -3,8 +3,8 @@ spring:
     name: cognitive-rag-engine
   servlet:
     multipart:
-      max-file-size: 20MB
-      max-request-size: 20MB
+      max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:20MB}
+      max-request-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:20MB}
 
   # PostgreSQL DataSource Configuration
   datasource:
@@ -82,9 +82,9 @@ document:
 
   # Document Upload Configuration
   upload:
-    # Maximum file size in bytes (50 MB)
+    # Maximum file size (20 MB, must match spring.servlet.multipart.max-file-size)
     # Environment variable: DOCUMENT_UPLOAD_MAX_FILE_SIZE
-    max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:52428800}
+    max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:20MB}
 
     # Maximum filename length (excluding extension)
     # Environment variable: DOCUMENT_UPLOAD_MAX_FILENAME_LENGTH
