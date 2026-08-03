@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
 import com.skyshift.cognitiveragengine.common.converter.DocumentToSourceChunkConverter;
+import com.skyshift.cognitiveragengine.qa.config.QaProperties;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.qa.model.KnowledgeSourceResponse;
 import com.skyshift.cognitiveragengine.qa.model.SourceChunk;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.*;
 
 @Slf4j
 @Service
@@ -24,28 +26,31 @@ public class QaService {
     private final ChatClient chatClient;
     private final PromptTemplate qaQueryPromptTemplate;
     private final KnowledgeSourceResponseConverter responseConverter;
+    private final QaProperties qaProperties;
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public QaService(
             ReadyChunkDocumentRetriever readyChunkDocumentRetriever,
             ChatClient chatClient,
             @Qualifier("qaQueryPromptTemplate") PromptTemplate qaQueryPromptTemplate,
-            KnowledgeSourceResponseConverter responseConverter
-    ) {
+            KnowledgeSourceResponseConverter responseConverter,
+            QaProperties qaProperties) {
         this.readyChunkDocumentRetriever = readyChunkDocumentRetriever;
         this.chatClient = chatClient;
         this.qaQueryPromptTemplate = qaQueryPromptTemplate;
         this.responseConverter = responseConverter;
+        this.qaProperties = qaProperties;
     }
 
     public QAResponse askQuestion(String query, Long groupId) {
-        log.info("Processing question: query='{}', groupId={}", query, groupId);
+        log.info("Processing QA question: query='{}', groupId={}, config=[maxTokens={}, temperature={}, timeout={}ms]",
+                query, groupId, qaProperties.getMaxTokens(), qaProperties.getTemperature(), qaProperties.getChatTimeoutMs());
 
         try {
-            log.debug("Retrieving relevant chunks for query: {}", query);
             DocumentBundle documentBundle = readyChunkDocumentRetriever.retrieveDocuments(groupId, query);
 
             if (documentBundle.documents().isEmpty()) {
-                log.warn("No relevant chunks found for query: {} in groupId: {}", query, groupId);
+                log.warn("No relevant context found for question: groupId={}", groupId);
                 return new QAResponse(
                         false,
                         "No relevant context found to answer the question",
@@ -54,21 +59,15 @@ public class QaService {
                 );
             }
 
-            log.debug("Building user prompt with query and {} context chunks", documentBundle.documents().size());
             String userPrompt = buildUserPrompt(query);
-
-            log.debug("Calling ChatClient with advisors to generate answer");
             KnowledgeSourceResponse response = invokeKnowledgeSourceResponse(userPrompt, groupId, documentBundle.documents());
-
-            log.info("Question answered successfully");
+            log.info("QA answer generated successfully: groupId={}, chunks={}", groupId, documentBundle.documents().size());
 
             List<SourceChunk> sourceChunks = DocumentToSourceChunkConverter.convertAll(documentBundle.documents());
-
             return new QAResponse(true, "", sourceChunks, response.answer());
 
         } catch (Exception e) {
-            log.error("Error processing question: query='{}', groupId={}: {}",
-                    query, groupId, e.getMessage(), e);
+            log.error("QA processing failed: groupId={}, error={}", groupId, e.getMessage(), e);
             return new QAResponse(
                     false,
                     "Failed to process question: " + e.getMessage(),
@@ -80,22 +79,26 @@ public class QaService {
 
     private KnowledgeSourceResponse invokeKnowledgeSourceResponse(
             String userPrompt, Long groupId, List<Document> documents) throws Exception {
-
-        // Raw response + lenient conversion: reasoning models (e.g. deepseek-r1) prepend a
-        // <think> preamble that breaks strict entity() deserialization, so entity() isn't
-        // used here - it forced a second full LLM call on every request to fall back to this
-        // same conversion anyway. KnowledgeSourceResponseConverter already handles both clean
-        // JSON and preamble-polluted responses.
-        log.debug("Invoking ChatClient and converting raw response");
-        String rawResponse = chatClient.prompt(userPrompt)
-                .advisors(advisor -> advisor
+        try {
+            String rawResponse = CompletableFuture.supplyAsync(() ->
+                chatClient.prompt(userPrompt)
+                    .advisors(advisor -> advisor
                         .param("groupId", groupId)
                         .param(ReadyChunkDocumentRetriever.PREFETCHED_DOCUMENTS_CONTEXT_KEY, documents)
-                )
-                .call()
-                .content();
+                    )
+                    .call()
+                    .content(),
+                executor
+            ).get(qaProperties.getChatTimeoutMs(), TimeUnit.MILLISECONDS);
 
-        return responseConverter.convertRawResponse(rawResponse);
+            return responseConverter.convertRawResponse(rawResponse);
+        } catch (TimeoutException e) {
+            log.error("LLM generation timed out after {}ms for groupId: {}", qaProperties.getChatTimeoutMs(), groupId, e);
+            throw new RuntimeException("Request timed out", e);
+        } catch (Exception e) {
+            log.error("Failed to generate QA response for groupId: {}", groupId, e);
+            throw new RuntimeException("Failed to complete QA generation", e);
+        }
     }
 
     private String buildUserPrompt(String query) {

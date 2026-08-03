@@ -25,6 +25,7 @@ public class RetrievalProperties {
     @Setter
     public static class Sparse {
         private int topK = 30;
+        private double minScorePercentile = 0.5;
     }
 
     @Getter

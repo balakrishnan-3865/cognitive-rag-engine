@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.retrieval.vectorstore;
 
+import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.exception.VectorSearchException;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,11 +26,13 @@ class VectorSearchServiceTest {
     @Mock
     private VectorStore vectorStore;
 
+    private RetrievalProperties retrievalProperties;
     private VectorSearchService service;
 
     @BeforeEach
     void setUp() {
-        service = new VectorSearchService(vectorStore);
+        retrievalProperties = new RetrievalProperties();
+        service = new VectorSearchService(vectorStore, retrievalProperties);
     }
 
     @Test

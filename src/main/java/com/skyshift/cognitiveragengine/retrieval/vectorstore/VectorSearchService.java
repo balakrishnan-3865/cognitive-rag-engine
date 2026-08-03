@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.retrieval.vectorstore;
 
+import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.exception.VectorSearchException;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
 import lombok.extern.slf4j.Slf4j;
@@ -19,12 +20,12 @@ import java.util.stream.Collectors;
 @Service
 public class VectorSearchService {
 
-    private static final double SIMILARITY_THRESHOLD = 0.5;
-
     private final VectorStore vectorStore;
+    private final RetrievalProperties retrievalProperties;
 
-    public VectorSearchService(VectorStore vectorStore) {
+    public VectorSearchService(VectorStore vectorStore, RetrievalProperties retrievalProperties) {
         this.vectorStore = vectorStore;
+        this.retrievalProperties = retrievalProperties;
     }
 
     public List<VectorHit> search(String query, Long groupId, List<Long> documentIds, int topK) {
@@ -48,7 +49,7 @@ public class VectorSearchService {
             SearchRequest searchRequest = SearchRequest.builder()
                     .query(query)
                     .topK(topK)
-                    .similarityThreshold(SIMILARITY_THRESHOLD)
+                    .similarityThreshold(retrievalProperties.getDense().getSimilarityThreshold())
                     .filterExpression(filter)
                     .build();
 

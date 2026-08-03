@@ -9,6 +9,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.skyshift.cognitiveragengine.common.exception.BusinessException;
 import com.skyshift.cognitiveragengine.ingestion.exception.NoChunksFoundException;
 import com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity;
+import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.SparseChunkDto;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -33,12 +34,15 @@ public class ElasticsearchChunkIndexService {
 
     private final ElasticsearchClient elasticsearchClient;
     private final int batchSize;
+    private final RetrievalProperties retrievalProperties;
 
     public ElasticsearchChunkIndexService(
             ElasticsearchClient elasticsearchClient,
-            @Value("${document.ingestion.elasticsearch-batch-size:50}") int batchSize) {
+            @Value("${document.ingestion.elasticsearch-batch-size:50}") int batchSize,
+            RetrievalProperties retrievalProperties) {
         this.elasticsearchClient = elasticsearchClient;
         this.batchSize = batchSize;
+        this.retrievalProperties = retrievalProperties;
     }
 
     public void ensureIndexExists() {
@@ -269,7 +273,7 @@ public class ElasticsearchChunkIndexService {
                                                 .match(mt -> mt
                                                         .field("chunkText")
                                                         .query(query)
-                                                        .minimumShouldMatch("80%")
+                                                        .minimumShouldMatch(formatPercentile(retrievalProperties.getSparse().getMinScorePercentile()))
                                                 )
                                         )
                                 )
@@ -277,6 +281,10 @@ public class ElasticsearchChunkIndexService {
                         .size(topK),
                 SparseChunkDto.class
         );
+    }
+
+    private String formatPercentile(double percentile) {
+        return (int) (percentile * 100) + "%";
     }
 
     public void deleteChunksByDocumentId(Long documentId) throws IOException {

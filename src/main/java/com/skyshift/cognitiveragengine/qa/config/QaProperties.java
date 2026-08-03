@@ -12,5 +12,6 @@ import org.springframework.stereotype.Component;
 public class QaProperties {
     private int topK = 5;
     private int maxTokens = 2000;
-    private double temperature = 0.7;
+    private double temperature = 0.3;
+    private int chatTimeoutMs = 30000;
 }

@@ -106,18 +106,36 @@ storage:
     secret-key: ${MINIO_SECRET_KEY:minioadmin}
     bucket: ${MINIO_BUCKET_NAME:cognitive-rag-engine}
 
-# QA Configuration (Stage 3)
+# QA Configuration (Stage 3) - LLM generation and final result limiting
 qa:
   top-k: ${QA_TOP_K_DEFAULT:3}
-  similarity-threshold: ${QA_SIMILARITY_THRESHOLD:0.5}
   chat-timeout-ms: ${QA_CHAT_TIMEOUT_MS:30000}
-  temperature: ${QA_TEMPERATURE:0.1}
+  temperature: ${QA_TEMPERATURE:0.3}
   max-tokens: ${QA_MAX_TOKENS:2000}
 
-# Hybrid Search Configuration (Stage 4 - Dense + Sparse RRF Fusion)
-hybrid-search:
-  # Per-source candidate depth fetched from each retriever before RRF fusion and truncation to qa.top-k-default
-  candidate-pool-size: ${HYBRID_SEARCH_CANDIDATE_POOL_SIZE:30}
+# Retrieval Configuration (Stage 4 - Dense + Sparse RRF Fusion)
+retrieval:
+  dense:
+    # Top-K candidates fetched from dense (pgvector) search before RRF fusion
+    top-k: ${RETRIEVAL_DENSE_TOP_K:30}
+    # Minimum similarity threshold for dense search results
+    similarity-threshold: ${RETRIEVAL_DENSE_SIMILARITY_THRESHOLD:0.65}
+  sparse:
+    # Top-K candidates fetched from sparse (Elasticsearch) search before RRF fusion
+    top-k: ${RETRIEVAL_SPARSE_TOP_K:30}
+    # Minimum score percentile threshold for sparse search results (0.0 to 1.0)
+    # Default: 50%, Note: Elasticsearch client natively uses 80%
+    min-score-percentile: ${RETRIEVAL_SPARSE_MIN_SCORE_PERCENTILE:0.5}
+  fusion:
+    # Reciprocal Rank Fusion strategy for combining dense and sparse results
+    strategy: ${RETRIEVAL_FUSION_STRATEGY:rrf}
+    # K parameter for RRF scoring formula
+    rrf-k: ${RETRIEVAL_FUSION_RRF_K:60}
+    weights:
+      # Weight for dense search results in fusion (when not using RRF)
+      dense: ${RETRIEVAL_FUSION_WEIGHTS_DENSE:0.5}
+      # Weight for sparse search results in fusion (when not using RRF)
+      sparse: ${RETRIEVAL_FUSION_WEIGHTS_SPARSE:0.5}
 
 # Assistant Configuration - ReAct agent with RAG exposed as a tool
 assistant:

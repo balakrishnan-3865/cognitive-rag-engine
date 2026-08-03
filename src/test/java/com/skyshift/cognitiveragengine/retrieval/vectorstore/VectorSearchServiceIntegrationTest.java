@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.retrieval.vectorstore;
 
+import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.exception.VectorSearchException;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
@@ -24,11 +26,14 @@ class VectorSearchServiceIntegrationTest {
     @MockBean
     private VectorStore vectorStore;
 
+    @Autowired
+    private RetrievalProperties retrievalProperties;
+
     private VectorSearchService service;
 
     @BeforeEach
     void setUp() {
-        service = new VectorSearchService(vectorStore);
+        service = new VectorSearchService(vectorStore, retrievalProperties);
     }
 
     @Test
