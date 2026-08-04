@@ -10,7 +10,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.*;
 
@@ -23,7 +23,7 @@ class VectorSearchServiceIntegrationTest {
 
     private static final List<Long> DOCUMENT_IDS = List.of(1L, 2L, 3L, 5L);
 
-    @MockBean
+    @MockitoBean
     private VectorStore vectorStore;
 
     @Autowired

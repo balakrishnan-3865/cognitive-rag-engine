@@ -229,7 +229,7 @@ resilience4j:
         randomizedWaitDuration: true
         retryExceptions:
           - java.io.IOException
-          - org.elasticsearch.client.ResponseException
+          - co.elastic.clients.transport.rest5_client.low_level.ResponseException
 
 # Application Configuration - Custom app-level settings
 app:

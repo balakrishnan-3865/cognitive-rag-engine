@@ -64,9 +64,8 @@ public class QaChatClientConfiguration {
                 .defaultSystem(qaSystemPromptTemplate.getTemplate())
                 .defaultAdvisors(qaRetrievalAdvisor)
                 .defaultOptions(ChatOptions.builder()
-                        .temperature(qaProperties.getTemperature())
                         .maxTokens(qaProperties.getMaxTokens())
-                        .build())
+                        .temperature(qaProperties.getTemperature()))
                 .build();
     }
 }

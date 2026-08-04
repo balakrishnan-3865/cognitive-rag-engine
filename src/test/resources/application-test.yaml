@@ -2,11 +2,6 @@ spring:
   application:
     name: cognitive-rag-engine-test
 
-  # Autoconfiguration exclusions for test environment
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.autoconfigure.ollama.OllamaAutoConfiguration
-
   # PostgreSQL DataSource Configuration (Test)
   # Using port 5433 from docker-compose-test.yml to avoid conflicts
   datasource:

@@ -2,11 +2,12 @@
 
 ## 1. Project Overview & Stack
 - **Domain:** Retrieval Augmented Generation (RAG) system in foundational stages.
-- **Framework**: Spring Boot 3.5.0
+- **Framework**: Spring Boot 4.0.1 (Spring Framework 7, Jakarta EE 11)
 - **Database Access: MyBatis** (NOT JPA/Hibernate)
 - **Build Tool**: Maven 3.9+ (with wrapper mvnw/mvnw.cmd)
-- **Language**: Java 17
+- **Language**: Java 21
 - **Package**: `com.skyshift.cognitiveragengine`
+- **Note**: `spring-ai-alibaba` (ReactAgent framework) is pinned to milestone `2.0.0-M1.1` — the only release compatible with Boot 4 / Spring AI 2.0 so far. Expect possible API drift until Alibaba ships a GA aligned with spring-ai 2.0.0 GA.
 
 ## 2. Core Execution Commands
 - **Compile & Validate:** `./mvnw clean compile`
@@ -55,10 +56,10 @@ cognitive_rag_engine
 - **storage**: PgVector and MinIO object storage integration
 - **common**: Shared utilities, constants, and helpers
 
-## 4. Spring Boot 3.5.0 Coding Conventions
+## 4. Spring Boot 4.0.1 Coding Conventions
 
 ### 1. Core Framework & Architecture
-* **Java Version:** Java 17 LTS. Use modern features like records, sealed classes, and switch pattern matching.
+* **Java Version:** Java 21 LTS. Use modern features like records, sealed classes, and switch pattern matching.
 * **Immutability:** Default to `record` types for DTOs and configuration properties when applicable.
 
 ### 2. Dependency Injection & Configuration
@@ -75,8 +76,18 @@ cognitive_rag_engine
 * This means no JPA entities, `@Entity` annotations, `JpaRepository` interfaces.
 * Only use MyBatis mappers with SQL in XML.
 
+### 5. Boot 4 Modularized Starters — Don't Use Boot 3 Artifact Names
+Boot 4 split the monolithic autoconfigure jar into per-feature modules. The old Boot 3 dependency names still resolve in some cases but silently fail to autoconfigure. When adding/upgrading dependencies, use:
+* Flyway: `spring-boot-starter-flyway` (bare `flyway-core` no longer autoconfigures migrations).
+* AOP: `spring-boot-starter-aspectj` (renamed from `spring-boot-starter-aop`).
+* MyBatis-Plus: `mybatis-plus-spring-boot4-starter` (not the `-spring-boot3-` variant).
+* Resilience4j: `resilience4j-spring-boot4` (not `-spring-boot3`).
+* Tracing/OTLP: `spring-boot-starter-opentelemetry` (replaces manually combining `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`).
+* Elasticsearch client: `co.elastic.clients:elasticsearch-java` is now v9.x — the Docker Elasticsearch server version in `deploy/docker-compose*.yml` must stay on a matching 9.x major.
+
 ## 5. Structural RAG Guardrails
 - **Spring AI First:** Maximize native Spring AI abstractions (ChatModel, VectorStore, EmbeddingModel). Do not write raw REST/HTTP clients for LLM APIs.
+- **Spring AI 2.0 builder change:** `ChatClient.Builder.defaultOptions(...)` now takes a `ChatOptions.Builder` directly (not a built `ChatOptions`). Call `.build()` once, at the end of the outer `ChatClient.Builder` chain — not on the inner `ChatOptions.builder()`.
 - **Configuration:** Maintain all application flags inside `src/main/resources/application.yaml`. Do not hardcode properties.
 - **Immutable Data:** Use Java `record` types for DTOs, API request envelopes, and context payloads.
 - **Validation-First:** Write integration tests alongside new endpoints or embedding pipelines using Spring Boot's internal test tools.

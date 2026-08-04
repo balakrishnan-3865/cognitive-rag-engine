@@ -46,7 +46,7 @@ services:
 
   # Elasticsearch for sparse text/data storage
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.0
     container_name: ${ELASTICSEARCH_CONTAINER_NAME:-cognitive-rag-elasticsearch}
     environment:
       - discovery.type=single-node
