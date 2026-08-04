@@ -40,10 +40,14 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			<!-- Pinned to 2.0.0-M1 (not the 2.0.0 GA) to match what spring-ai-alibaba-agent-framework:2.0.0-M1.1
+			     was actually compiled against. GA removed ToolCallingChatOptions.Builder.internalToolExecutionEnabled(),
+			     which AgentLlmNode still calls internally, causing a NoSuchMethodError at runtime. Revisit once
+			     spring-ai-alibaba ships a release built against spring-ai 2.0.0 GA. -->
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
 				<artifactId>spring-ai-bom</artifactId>
-				<version>2.0.0</version>
+				<version>2.0.0-M1</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -143,7 +147,14 @@
 		<dependency>
 			<groupId>io.minio</groupId>
 			<artifactId>minio</artifactId>
-			<version>8.5.9</version>
+			<version>8.6.0</version>
+		</dependency>
+		<!-- okhttp 5.x split its JVM classes into okhttp-jvm; the plain "okhttp" artifact minio pulls in
+		     is an empty multiplatform shell jar under plain Maven resolution, so pull the real classes in explicitly. -->
+		<dependency>
+			<groupId>com.squareup.okhttp3</groupId>
+			<artifactId>okhttp-jvm</artifactId>
+			<version>5.1.0</version>
 		</dependency>
 
 		<!-- Lombok -->

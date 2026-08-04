@@ -2,6 +2,8 @@ package com.skyshift.cognitiveragengine.storage.service;
 
 import com.skyshift.cognitiveragengine.common.exception.StorageException;
 import io.minio.BucketExistsArgs;
+import io.minio.messages.DeleteError;
+import io.minio.messages.DeleteObject;
 import io.minio.GetObjectArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
@@ -9,8 +11,7 @@ import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.RemoveObjectsArgs;
 import io.minio.Result;
-import io.minio.messages.DeleteError;
-import io.minio.messages.DeleteObject;
+import io.minio.messages.DeleteResult;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
@@ -131,9 +132,12 @@ public class MinioStorageService implements ObjectStorageService {
                     .build());
 
             for (Result<DeleteError> result : results) {
-                DeleteError error = result.get();
-                log.error("Failed to delete object key='{}' from bucket='{}'",
-                    error.objectName(), bucketName);
+                DeleteError deleteError = result.get();
+                if (deleteError != null) {
+                    log.error("Error in deleting object key='{}' from bucket='{}': {}", deleteError.objectName(), bucketName, deleteError.message());
+                } else {
+                    log.error("Failed to delete object from bucket='{}'", bucketName);
+                }
             }
             log.debug("Deleted {} objects from bucket='{}'", keys.size(), bucketName);
         } catch (Exception e) {

@@ -1,7 +1,6 @@
 package com.skyshift.cognitiveragengine.document.config;
 
 import jakarta.validation.constraints.NotEmpty;
-import org.checkerframework.checker.index.qual.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.util.unit.DataSize;
@@ -13,7 +12,7 @@ import java.util.Set;
 @Validated
 public record DocumentUploadProperties(
         @DefaultValue("20MB") DataSize maxFileSize,
-        @Positive @DefaultValue("255") Integer maxFilenameLength,
-        @Positive @DefaultValue("10") Integer maxExtensionLength,
+        @DefaultValue("255") Integer maxFilenameLength,
+        @DefaultValue("10") Integer maxExtensionLength,
         @NotEmpty @DefaultValue("pdf") Set<String> supportedExtensions
 ) {}

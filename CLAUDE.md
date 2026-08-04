@@ -7,7 +7,7 @@
 - **Build Tool**: Maven 3.9+ (with wrapper mvnw/mvnw.cmd)
 - **Language**: Java 21
 - **Package**: `com.skyshift.cognitiveragengine`
-- **Note**: `spring-ai-alibaba` (ReactAgent framework) is pinned to milestone `2.0.0-M1.1` — the only release compatible with Boot 4 / Spring AI 2.0 so far. Expect possible API drift until Alibaba ships a GA aligned with spring-ai 2.0.0 GA.
+- **Note**: `spring-ai-alibaba` (ReactAgent framework) is pinned to milestone `2.0.0-M1.1`, the only release compatible with Boot 4. It was compiled against `spring-ai-bom:2.0.0-M1`, so `spring-ai-bom` is also pinned to `2.0.0-M1` (not the `2.0.0` GA) — GA removed `ToolCallingChatOptions.Builder.internalToolExecutionEnabled()`, which `AgentLlmNode` still calls internally, causing a `NoSuchMethodError` at runtime against GA. Revisit both pins together once Alibaba ships a release built against spring-ai 2.0.0 GA.
 
 ## 2. Core Execution Commands
 - **Compile & Validate:** `./mvnw clean compile`
@@ -87,7 +87,7 @@ Boot 4 split the monolithic autoconfigure jar into per-feature modules. The old 
 
 ## 5. Structural RAG Guardrails
 - **Spring AI First:** Maximize native Spring AI abstractions (ChatModel, VectorStore, EmbeddingModel). Do not write raw REST/HTTP clients for LLM APIs.
-- **Spring AI 2.0 builder change:** `ChatClient.Builder.defaultOptions(...)` now takes a `ChatOptions.Builder` directly (not a built `ChatOptions`). Call `.build()` once, at the end of the outer `ChatClient.Builder` chain — not on the inner `ChatOptions.builder()`.
+- **`spring-ai-bom` is pinned to `2.0.0-M1`** (see Section 1 note) — use the M1 API, not GA. `ChatClient.Builder.defaultOptions(...)` takes a built `ChatOptions`, so call `.build()` on the inner `ChatOptions.builder()` before passing it in. (GA changed this to accept a `ChatOptions.Builder` directly — do not use that form while pinned to M1.)
 - **Configuration:** Maintain all application flags inside `src/main/resources/application.yaml`. Do not hardcode properties.
 - **Immutable Data:** Use Java `record` types for DTOs, API request envelopes, and context payloads.
 - **Validation-First:** Write integration tests alongside new endpoints or embedding pipelines using Spring Boot's internal test tools.

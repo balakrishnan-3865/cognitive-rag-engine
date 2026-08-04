@@ -3,14 +3,14 @@ spring:
     name: cognitive-rag-engine
   servlet:
     multipart:
-      max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:20MB}
-      max-request-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:20MB}
+      max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE}
+      max-request-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE}
 
   # PostgreSQL DataSource Configuration
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cognitive_rag_engine}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -27,7 +27,7 @@ spring:
       chat:
         options:
           model: llama-3.1-8b-instant
-          temperature: 0.3
+          temperature: ${QA_TEMPERATURE}
           top-p: 1.0
     ollama:
       base-url: http://localhost:11434
@@ -38,17 +38,17 @@ spring:
     # Vector Store Configuration (PgVector)
     vectorstore:
       pgvector:
-        dimensions: 1024           # Match embedding model (nomic-embed-text)
+        dimensions: 1024           # Match embedding model (qwen3-embedding:0.6b)
         distance-type: COSINE_DISTANCE     # Options: COSINE, EUCLIDEAN, INNER_PRODUCT
         index-type: HNSW          # Options: HNSW, IVFFLAT
         initialize-schema: true   # Auto-creates vector_store table on startup
-        max-document-batch-size: ${VECTORSTORE_BATCH_SIZE:50}  # Batch size for vector ingestion
+        max-document-batch-size: ${VECTORSTORE_BATCH_SIZE}
 
   # Elasticsearch Configuration
   elasticsearch:
-    uris: ${ELASTICSEARCH_URI:http://localhost:9200}
-    username: ${ELASTICSEARCH_USERNAME:elastic}
-    password: ${ELASTICSEARCH_PASSWORD:changeme}
+    uris: ${ELASTICSEARCH_URI}
+    username: ${ELASTICSEARCH_USERNAME}
+    password: ${ELASTICSEARCH_PASSWORD}
 
   # Async Task Execution Configuration
   task:
@@ -62,121 +62,87 @@ spring:
       # Prevents indefinite hanging of async tasks in distributed systems
       shutdown:
         await-termination: true
-        await-termination-period: ${SPRING_TASK_EXECUTION_SHUTDOWN_PERIOD_SECONDS:300}s  # Default: 5 minutes
+        await-termination-period: ${SPRING_TASK_EXECUTION_SHUTDOWN_PERIOD_SECONDS}s
 
   # Flyway Database Migration
   flyway:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-# Document Ingestion Configuration (Phase 2.2) - Recursive Character Chunking
+# Document Ingestion Configuration - Recursive Character Chunking
 document:
   ingestion:
-    chunk-size-chars: ${DOCUMENT_INGESTION_CHUNK_SIZE_CHARS:1200}
-    chunk-overlap-chars: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_CHARS:200}
-    embedding-batch-size: ${DOCUMENT_INGESTION_EMBEDDING_BATCH_SIZE:50}
-    elasticsearch-batch-size: ${DOCUMENT_INGESTION_ELASTICSEARCH_BATCH_SIZE:50}
-    max-retries: ${DOCUMENT_INGESTION_MAX_RETRIES:3}
-    initial-retry-delay-ms: ${DOCUMENT_INGESTION_INITIAL_RETRY_DELAY_MS:1000}
-    retry-backoff-multiplier: ${DOCUMENT_INGESTION_RETRY_BACKOFF_MULTIPLIER:2.0}
+    chunk-size-chars: ${DOCUMENT_INGESTION_CHUNK_SIZE_CHARS}
+    chunk-overlap-chars: ${DOCUMENT_INGESTION_CHUNK_OVERLAP_CHARS}
+    embedding-batch-size: ${DOCUMENT_INGESTION_EMBEDDING_BATCH_SIZE}
+    elasticsearch-batch-size: ${DOCUMENT_INGESTION_ELASTICSEARCH_BATCH_SIZE}
+    max-retries: ${DOCUMENT_INGESTION_MAX_RETRIES}
+    initial-retry-delay-ms: ${DOCUMENT_INGESTION_INITIAL_RETRY_DELAY_MS}
+    retry-backoff-multiplier: ${DOCUMENT_INGESTION_RETRY_BACKOFF_MULTIPLIER}
 
   # Document Upload Configuration
   upload:
-    # Maximum file size (20 MB, must match spring.servlet.multipart.max-file-size)
-    # Environment variable: DOCUMENT_UPLOAD_MAX_FILE_SIZE
-    max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:20MB}
-
-    # Maximum filename length (excluding extension)
-    # Environment variable: DOCUMENT_UPLOAD_MAX_FILENAME_LENGTH
-    max-filename-length: ${DOCUMENT_UPLOAD_MAX_FILENAME_LENGTH:255}
-
-    # Maximum file extension length
-    # Environment variable: DOCUMENT_UPLOAD_MAX_EXTENSION_LENGTH
-    max-extension-length: ${DOCUMENT_UPLOAD_MAX_EXTENSION_LENGTH:10}
-
-    # Supported file extensions (case-insensitive, comma-separated)
-    # Environment variable: DOCUMENT_UPLOAD_SUPPORTED_EXTENSIONS
-    supported-extensions: ${DOCUMENT_UPLOAD_SUPPORTED_EXTENSIONS:pdf}
+    max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE}
+    max-filename-length: ${DOCUMENT_UPLOAD_MAX_FILENAME_LENGTH}
+    max-extension-length: ${DOCUMENT_UPLOAD_MAX_EXTENSION_LENGTH}
+    supported-extensions: ${DOCUMENT_UPLOAD_SUPPORTED_EXTENSIONS}
 
 # MinIO Object Storage Configuration
 storage:
   minio:
-    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-    access-key: ${MINIO_ACCESS_KEY:minioadmin}
-    secret-key: ${MINIO_SECRET_KEY:minioadmin}
-    bucket: ${MINIO_BUCKET_NAME:cognitive-rag-engine}
+    endpoint: ${MINIO_ENDPOINT}
+    access-key: ${MINIO_ACCESS_KEY}
+    secret-key: ${MINIO_SECRET_KEY}
+    bucket: ${MINIO_BUCKET_NAME}
 
-# QA Configuration (Stage 3) - LLM generation and final result limiting
+# QA Configuration - LLM generation and final result limiting
 qa:
-  top-k: ${QA_TOP_K_DEFAULT:3}
-  chat-timeout-ms: ${QA_CHAT_TIMEOUT_MS:30000}
-  temperature: ${QA_TEMPERATURE:0.3}
-  max-tokens: ${QA_MAX_TOKENS:2000}
+  top-k: ${QA_TOP_K_DEFAULT}
+  chat-timeout-ms: ${QA_CHAT_TIMEOUT_MS}
+  temperature: ${QA_TEMPERATURE}
+  max-tokens: ${QA_MAX_TOKENS}
 
-# Retrieval Configuration (Stage 4 - Dense + Sparse RRF Fusion)
+# Retrieval Configuration - Dense + Sparse RRF Fusion
 retrieval:
   dense:
-    # Top-K candidates fetched from dense (pgvector) search before RRF fusion
-    top-k: ${RETRIEVAL_DENSE_TOP_K:20}
-    # Minimum similarity threshold for dense search results
-    similarity-threshold: ${RETRIEVAL_DENSE_SIMILARITY_THRESHOLD:0.65}
+    top-k: ${RETRIEVAL_DENSE_TOP_K}
+    similarity-threshold: ${RETRIEVAL_DENSE_SIMILARITY_THRESHOLD}
   sparse:
-    # Top-K candidates fetched from sparse (Elasticsearch) search before RRF fusion
-    top-k: ${RETRIEVAL_SPARSE_TOP_K:20}
-    # Minimum score percentile threshold for sparse search results (0.0 to 1.0)
-    # Default: 50%, Note: Elasticsearch client natively uses 80%
-    min-score-percentile: ${RETRIEVAL_SPARSE_MIN_SCORE_PERCENTILE:0.5}
+    top-k: ${RETRIEVAL_SPARSE_TOP_K}
+    min-score-percentile: ${RETRIEVAL_SPARSE_MIN_SCORE_PERCENTILE}
   fusion:
-    # Reciprocal Rank Fusion strategy for combining dense and sparse results
-    strategy: ${RETRIEVAL_FUSION_STRATEGY:rrf}
-    # K parameter for RRF scoring formula
-    rrf-k: ${RETRIEVAL_FUSION_RRF_K:60}
+    strategy: ${RETRIEVAL_FUSION_STRATEGY}
+    rrf-k: ${RETRIEVAL_FUSION_RRF_K}
     weights:
-      # Weight for dense search results in fusion (when not using RRF)
-      dense: ${RETRIEVAL_FUSION_WEIGHTS_DENSE:0.5}
-      # Weight for sparse search results in fusion (when not using RRF)
-      sparse: ${RETRIEVAL_FUSION_WEIGHTS_SPARSE:0.5}
+      dense: ${RETRIEVAL_FUSION_WEIGHTS_DENSE}
+      sparse: ${RETRIEVAL_FUSION_WEIGHTS_SPARSE}
   reranker:
-    # Cross-encoder reranking of RRF-fused candidates before final top-K selection. Off by default:
-    # requires the ONNX export + tokenizer.json for cross-encoder/ms-marco-MiniLM-L-6-v2 on disk.
-    enabled: ${RETRIEVAL_RERANKER_ENABLED:true}
-    model-path: ${RETRIEVAL_RERANKER_MODEL_PATH:models/ms-marco-MiniLM-L-6-v2/model.onnx}
-    tokenizer-path: ${RETRIEVAL_RERANKER_TOKENIZER_PATH:models/ms-marco-MiniLM-L-6-v2/tokenizer.json}
-    # Max token length per query+passage pair fed to the model
-    max-sequence-length: ${RETRIEVAL_RERANKER_MAX_SEQUENCE_LENGTH:512}
-    # Caps how many RRF candidates get scored, bounding reranking latency
-    max-candidates: ${RETRIEVAL_RERANKER_MAX_CANDIDATES:20}
-    # Thread pool size for parallel cross-encoder scoring (CPU-bound work, so a bounded pool, not virtual threads)
-    parallelism: ${RETRIEVAL_RERANKER_PARALLELISM:4}
-    # Overall timeout for scoring a batch; falls back to original RRF order on breach
-    timeout-ms: ${RETRIEVAL_RERANKER_TIMEOUT_MS:2000}
+    enabled: ${RETRIEVAL_RERANKER_ENABLED}
+    model-path: ${RETRIEVAL_RERANKER_MODEL_PATH}
+    tokenizer-path: ${RETRIEVAL_RERANKER_TOKENIZER_PATH}
+    max-sequence-length: ${RETRIEVAL_RERANKER_MAX_SEQUENCE_LENGTH}
+    max-candidates: ${RETRIEVAL_RERANKER_MAX_CANDIDATES}
+    parallelism: ${RETRIEVAL_RERANKER_PARALLELISM}
+    timeout-ms: ${RETRIEVAL_RERANKER_TIMEOUT_MS}
 
 # Assistant Configuration - ReAct agent with RAG exposed as a tool
 assistant:
-  top-k-default: ${ASSISTANT_TOP_K_DEFAULT:5}
-  # Caps ReactAgent's CompileConfig.recursionLimit (defaults to Integer.MAX_VALUE upstream) - bounds
-  # the total think-act-observe loop so a non-converging model can't spin indefinitely on the LLM bill.
-  max-tool-loops: ${ASSISTANT_MAX_TOOL_LOOPS:10}
-  tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS:30000}
-  # Most recent user/assistant turns kept verbatim in ConversationService.loadHistory; older turns are
-  # folded into a rolling summary once the trigger below is crossed (see docs/assistant-memory-phase2-summarization.md).
-  max-history-turns: ${ASSISTANT_MAX_HISTORY_TURNS:10}
-  # Unsummarized message count (must exceed max-history-turns) that triggers folding older turns into
-  # the rolling conversation summary.
-  summarization-trigger-message-count: ${ASSISTANT_SUMMARIZATION_TRIGGER_MESSAGE_COUNT:30}
+  top-k-default: ${ASSISTANT_TOP_K_DEFAULT}
+  max-tool-loops: ${ASSISTANT_MAX_TOOL_LOOPS}
+  tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS}
+  max-history-turns: ${ASSISTANT_MAX_HISTORY_TURNS}
+  summarization-trigger-message-count: ${ASSISTANT_SUMMARIZATION_TRIGGER_MESSAGE_COUNT}
 
-# Observability - traces (ChatClient/Advisor/VectorStore/EmbeddingModel spans) export to Langfuse
-# via OTLP; operational + rag.* metrics export to Prometheus/Grafana (deploy/observability) via
-# the /actuator/prometheus scrape endpoint. See docs/STAGE5_EVAL_OBSERVABILITY_PLAN.md.
+# Observability - traces export to Langfuse via OTLP; metrics export to Prometheus via /actuator/prometheus
 management:
   tracing:
     sampling:
-      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}  # trace every request; this is an eval/dev setup, not high-throughput prod
+      probability: ${TRACING_SAMPLING_PROBABILITY}
   otlp:
     tracing:
-      endpoint: ${LANGFUSE_OTEL_ENDPOINT:http://localhost:3000/api/public/otel/v1/traces}
+      endpoint: ${LANGFUSE_OTEL_ENDPOINT}
       headers:
-        Authorization: ${LANGFUSE_OTEL_AUTH_HEADER}  # Basic base64(publicKey:secretKey) from a Langfuse project's API keys; set in local .env, never commit the real value
+        Authorization: ${LANGFUSE_OTEL_AUTH_HEADER}
         x-langfuse-ingestion-version: "4"
   endpoints:
     web:
@@ -235,7 +201,4 @@ resilience4j:
 app:
   ingestion:
     recovery:
-      # Interval (in seconds) between ingestion recovery reconciliation runs
-      # Finds documents stuck in INJECTING state and marks them READY if data is verified
-      # Environment variable: APP_INGESTION_RECOVERY_INTERVAL_SECONDS
-      interval-seconds: ${APP_INGESTION_RECOVERY_INTERVAL_SECONDS:3600}  # Default: 1 hour
+      interval-seconds: ${APP_INGESTION_RECOVERY_INTERVAL_SECONDS}
