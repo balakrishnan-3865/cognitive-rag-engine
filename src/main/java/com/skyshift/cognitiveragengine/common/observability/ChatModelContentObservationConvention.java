@@ -11,6 +11,7 @@ import org.springframework.ai.chat.observation.DefaultChatModelObservationConven
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -72,10 +73,12 @@ public class ChatModelContentObservationConvention extends DefaultChatModelObser
     }
 
     private Map<String, String> toMessageMap(Message message) {
-        return Map.of(
-                "role", message.getMessageType().getValue(),
-                "content", message.getText()
-        );
+        // LinkedHashMap, not Map.of: tool-call assistant messages have a null getText()
+        // (they carry toolCalls instead), and Map.of throws NPE on a null value.
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("role", message.getMessageType().getValue());
+        map.put("content", message.getText());
+        return map;
     }
 
     private String serializeCompletion(ChatResponse response) {

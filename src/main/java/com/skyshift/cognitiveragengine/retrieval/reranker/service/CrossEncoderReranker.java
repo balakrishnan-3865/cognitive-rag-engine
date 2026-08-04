@@ -3,6 +3,7 @@ package com.skyshift.cognitiveragengine.retrieval.reranker.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.retrieval.reranker.model.ScoredDocument;
+import io.micrometer.context.ContextExecutorService;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.annotation.PreDestroy;
@@ -49,7 +50,7 @@ public class CrossEncoderReranker {
             ObjectMapper objectMapper) {
         this.crossEncoderService = crossEncoderService;
         this.properties = retrievalProperties.getReranker();
-        this.executor = Executors.newFixedThreadPool(properties.getParallelism());
+        this.executor = ContextExecutorService.wrap(Executors.newFixedThreadPool(properties.getParallelism()));
         this.observationRegistry = observationRegistry;
         this.objectMapper = objectMapper;
     }
