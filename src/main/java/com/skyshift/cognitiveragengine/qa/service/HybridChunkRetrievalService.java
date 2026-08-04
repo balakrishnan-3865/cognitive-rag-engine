@@ -1,5 +1,7 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skyshift.cognitiveragengine.common.observability.ObservabilityProperties;
 import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.qa.exception.RetrievalException;
@@ -39,6 +41,8 @@ public class HybridChunkRetrievalService {
     private final RetrievalProperties retrievalProperties;
     private final CrossEncoderReranker crossEncoderReranker;
     private final ObservationRegistry observationRegistry;
+    private final ObjectMapper objectMapper;
+    private final ObservabilityProperties observabilityProperties;
     private final DistributionSummary denseHitsSummary;
     private final DistributionSummary sparseHitsSummary;
     private final DistributionSummary fusedCountSummary;
@@ -54,6 +58,8 @@ public class HybridChunkRetrievalService {
             RetrievalProperties retrievalProperties,
             CrossEncoderReranker crossEncoderReranker,
             ObservationRegistry observationRegistry,
+            ObjectMapper objectMapper,
+            ObservabilityProperties observabilityProperties,
             MeterRegistry meterRegistry
     ) {
         this.vectorSearchService = vectorSearchService;
@@ -62,6 +68,8 @@ public class HybridChunkRetrievalService {
         this.retrievalProperties = retrievalProperties;
         this.crossEncoderReranker = crossEncoderReranker;
         this.observationRegistry = observationRegistry;
+        this.objectMapper = objectMapper;
+        this.observabilityProperties = observabilityProperties;
         this.denseHitsSummary = DistributionSummary.builder("rag.retrieval.dense.hits")
                 .description("Dense (pgvector) search result hit count")
                 .register(meterRegistry);
@@ -155,6 +163,12 @@ public class HybridChunkRetrievalService {
                 int topK = retrievalProperties.getSparse().getTopK();
                 List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks(query, groupId, documentIds, topK);
                 sparseObservation.highCardinalityKeyValue("db.response.returned_rows", String.valueOf(results.size()));
+                if (observabilityProperties.isCaptureContent()) {
+                    String summary = serializeKeywordHits(results);
+                    if (summary != null) {
+                        sparseObservation.highCardinalityKeyValue("db.response.returned_documents", summary);
+                    }
+                }
                 log.debug("Sparse search succeeded: {} hits for groupId={}", results.size(), groupId);
                 return RetrievalResult.success("sparse", results);
             } catch (Exception e) {
@@ -162,6 +176,25 @@ public class HybridChunkRetrievalService {
                 return RetrievalResult.failure("sparse", e);
             }
         });
+    }
+
+    /**
+     * Compact chunkId + score summary, not full chunk text - mirrors the pgvector query span's
+     * VectorStoreContentObservationConvention so both raw retrieval sources are comparable in the
+     * trace without duplicating text that only the handful of chunks reaching the LLM need.
+     */
+    private String serializeKeywordHits(List<KeywordHit> hits) {
+        try {
+            List<Map<String, Object>> summary = hits.stream()
+                    .map(hit -> Map.<String, Object>of(
+                            "chunkId", String.valueOf(hit.chunkId()),
+                            "score", hit.normalizedScore()))
+                    .collect(Collectors.toList());
+            return objectMapper.writeValueAsString(summary);
+        } catch (Exception e) {
+            log.debug("Failed to serialize sparse search results for tracing: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

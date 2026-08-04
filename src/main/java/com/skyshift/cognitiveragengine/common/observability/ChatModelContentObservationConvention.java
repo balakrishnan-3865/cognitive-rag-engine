@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.observation.ChatModelObservationContext;
 import org.springframework.ai.chat.observation.DefaultChatModelObservationConvention;
@@ -73,12 +75,32 @@ public class ChatModelContentObservationConvention extends DefaultChatModelObser
     }
 
     private Map<String, String> toMessageMap(Message message) {
-        // LinkedHashMap, not Map.of: tool-call assistant messages have a null getText()
-        // (they carry toolCalls instead), and Map.of throws NPE on a null value.
+        // LinkedHashMap, not Map.of: content can be null (tool-call-only assistant messages),
+        // and Map.of throws NPE on a null value.
         Map<String, String> map = new LinkedHashMap<>();
         map.put("role", message.getMessageType().getValue());
-        map.put("content", message.getText());
+        map.put("content", resolveContent(message));
         return map;
+    }
+
+    /**
+     * getText() doesn't carry the real payload for these two message types: a tool-call
+     * AssistantMessage stores the call in getToolCalls(), and ToolResponseMessage hardcodes
+     * getText() to "" (its content lives in getResponses()) - see ToolResponseMessage's
+     * constructor in spring-ai-model.
+     */
+    private String resolveContent(Message message) {
+        if (message instanceof AssistantMessage assistantMessage && assistantMessage.hasToolCalls()) {
+            return assistantMessage.getToolCalls().stream()
+                    .map(toolCall -> "%s(%s)".formatted(toolCall.name(), toolCall.arguments()))
+                    .collect(Collectors.joining(", "));
+        }
+        if (message instanceof ToolResponseMessage toolResponseMessage) {
+            return toolResponseMessage.getResponses().stream()
+                    .map(ToolResponseMessage.ToolResponse::responseData)
+                    .collect(Collectors.joining("\n\n"));
+        }
+        return message.getText();
     }
 
     private String serializeCompletion(ChatResponse response) {
