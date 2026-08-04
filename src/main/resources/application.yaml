@@ -133,21 +133,38 @@ assistant:
   max-history-turns: ${ASSISTANT_MAX_HISTORY_TURNS}
   summarization-trigger-message-count: ${ASSISTANT_SUMMARIZATION_TRIGGER_MESSAGE_COUNT}
 
+# Observability - raw prompt/completion capture on the chat-model span (gen_ai.prompt/gen_ai.completion),
+# for offline groundedness evaluation. Vendor-neutral OTel attributes only - no backend-specific config.
+observability:
+  capture-content: ${OBSERVABILITY_CAPTURE_CONTENT}
+
 # Observability - traces export to Langfuse via OTLP; metrics export to Prometheus via /actuator/prometheus
+
 management:
-  tracing:
-    sampling:
-      probability: ${TRACING_SAMPLING_PROBABILITY}
-  otlp:
-    tracing:
-      endpoint: ${LANGFUSE_OTEL_ENDPOINT}
-      headers:
-        Authorization: ${LANGFUSE_OTEL_AUTH_HEADER}
-        x-langfuse-ingestion-version: "4"
+  observations:
+    http:
+      client:
+        enabled: false  # Disables noisy RestClient, WebClient, and RestTemplate spans
+  endpoint:
+    prometheus:
+      enabled: true
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: "health,prometheus"
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          # Langfuse standard OTel ingestion endpoint
+          endpoint: ${LANGFUSE_OTEL_ENDPOINT}
+          headers:
+            # Map your Langfuse project authentication tokens
+            Authorization: ${LANGFUSE_OTEL_AUTH_HEADER}
+            x-langfuse-ingestion-version: "4"
 
 # Logging Configuration
 #logging:

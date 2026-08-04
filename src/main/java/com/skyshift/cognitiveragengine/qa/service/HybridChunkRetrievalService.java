@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 public class HybridChunkRetrievalService {
 
     private static final String OBSERVATION_NAME = "rag.hybrid_retrieval";
+    private static final String ELASTICSEARCH_OBSERVATION_NAME = "elasticsearch_query";
 
     private final VectorSearchService vectorSearchService;
     private final ElasticsearchChunkIndexService elasticsearchChunkIndexService;
@@ -140,15 +141,27 @@ public class HybridChunkRetrievalService {
      * Returns success with results or failure with exception, never throws.
      */
     private RetrievalResult attemptSparseSearch(String query, Long groupId, List<Long> documentIds) {
-        try {
-            int topK = retrievalProperties.getSparse().getTopK();
-            List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks(query, groupId, documentIds, topK);
-            log.debug("Sparse search succeeded: {} hits for groupId={}", results.size(), groupId);
-            return RetrievalResult.success("sparse", results);
-        } catch (Exception e) {
-            log.error("Sparse search failed for groupId={}: {}", groupId, e.getMessage(), e);
-            return RetrievalResult.failure("sparse", e);
-        }
+        Observation sparseObservation = Observation.createNotStarted(ELASTICSEARCH_OBSERVATION_NAME, observationRegistry)
+                .lowCardinalityKeyValue("db.system", "elasticsearch")
+                .lowCardinalityKeyValue("db.operation.name", "query")
+                .lowCardinalityKeyValue("db.collection.name", "rag_sparse_chunks") // mirrors ElasticsearchChunkIndexService.CHUNK_INDEX_NAME
+                .highCardinalityKeyValue("db.query.text", query)
+                .highCardinalityKeyValue("db.elasticsearch.top_k", String.valueOf(retrievalProperties.getSparse().getTopK()))
+                .highCardinalityKeyValue("db.elasticsearch.min_score_percentile",
+                        String.valueOf(retrievalProperties.getSparse().getMinScorePercentile()));
+
+        return sparseObservation.observe(() -> {
+            try {
+                int topK = retrievalProperties.getSparse().getTopK();
+                List<KeywordHit> results = elasticsearchChunkIndexService.searchChunks(query, groupId, documentIds, topK);
+                sparseObservation.highCardinalityKeyValue("db.response.returned_rows", String.valueOf(results.size()));
+                log.debug("Sparse search succeeded: {} hits for groupId={}", results.size(), groupId);
+                return RetrievalResult.success("sparse", results);
+            } catch (Exception e) {
+                log.error("Sparse search failed for groupId={}: {}", groupId, e.getMessage(), e);
+                return RetrievalResult.failure("sparse", e);
+            }
+        });
     }
 
     /**

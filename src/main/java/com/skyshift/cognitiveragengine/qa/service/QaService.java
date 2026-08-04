@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.ai.chat.client.ChatClient;
 import lombok.extern.slf4j.Slf4j;
+import io.micrometer.context.ContextExecutorService;
 
 import java.util.Collections;
 import java.util.List;
@@ -27,7 +28,11 @@ public class QaService {
     private final PromptTemplate qaQueryPromptTemplate;
     private final KnowledgeSourceResponseConverter responseConverter;
     private final QaProperties qaProperties;
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    // Wrapped so the calling thread's trace/observation context (Micrometer + OTel) is
+    // snapshotted and restored on the virtual thread; a raw executor loses it silently,
+    // producing parentless LLM-generation spans in the exported trace.
+    private final ExecutorService executor =
+            ContextExecutorService.wrap(Executors.newVirtualThreadPerTaskExecutor());
 
     public QaService(
             ReadyChunkDocumentRetriever readyChunkDocumentRetriever,
