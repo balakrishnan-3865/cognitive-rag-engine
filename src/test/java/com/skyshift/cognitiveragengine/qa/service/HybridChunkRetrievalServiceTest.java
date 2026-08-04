@@ -6,6 +6,8 @@ import com.skyshift.cognitiveragengine.qa.exception.RetrievalException;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
+import com.skyshift.cognitiveragengine.retrieval.reranker.service.CrossEncoderReranker;
+import com.skyshift.cognitiveragengine.retrieval.reranker.service.CrossEncoderService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.VectorSearchService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -40,6 +42,9 @@ class HybridChunkRetrievalServiceTest {
     @Mock
     private DocumentService documentService;
 
+    @Mock
+    private CrossEncoderReranker crossEncoderReranker;
+
     private RetrievalProperties retrievalProperties;
     private HybridChunkRetrievalService service;
 
@@ -54,10 +59,18 @@ class HybridChunkRetrievalServiceTest {
                 elasticsearchChunkIndexService,
                 documentService,
                 retrievalProperties,
+                crossEncoderReranker,
                 ObservationRegistry.NOOP,
                 new SimpleMeterRegistry()
         );
         when(documentService.findCurrentReadyDocumentIds(100L)).thenReturn(DOCUMENT_IDS);
+        // Mirrors the real no-op contract (reranking disabled): cap to topN, preserve incoming order.
+        lenient().when(crossEncoderReranker.rerank(anyString(), anyList(), anyInt()))
+                .thenAnswer(invocation -> {
+                    List<Document> candidates = invocation.getArgument(1);
+                    int topN = invocation.getArgument(2);
+                    return candidates.size() > topN ? candidates.subList(0, topN) : candidates;
+                });
     }
 
     // ========== SUCCESS CASES ==========

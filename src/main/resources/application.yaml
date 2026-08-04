@@ -27,7 +27,7 @@ spring:
       chat:
         options:
           model: llama-3.1-8b-instant
-          temperature: 0.7
+          temperature: 0.3
           top-p: 1.0
     ollama:
       base-url: http://localhost:11434
@@ -117,12 +117,12 @@ qa:
 retrieval:
   dense:
     # Top-K candidates fetched from dense (pgvector) search before RRF fusion
-    top-k: ${RETRIEVAL_DENSE_TOP_K:30}
+    top-k: ${RETRIEVAL_DENSE_TOP_K:20}
     # Minimum similarity threshold for dense search results
     similarity-threshold: ${RETRIEVAL_DENSE_SIMILARITY_THRESHOLD:0.65}
   sparse:
     # Top-K candidates fetched from sparse (Elasticsearch) search before RRF fusion
-    top-k: ${RETRIEVAL_SPARSE_TOP_K:30}
+    top-k: ${RETRIEVAL_SPARSE_TOP_K:20}
     # Minimum score percentile threshold for sparse search results (0.0 to 1.0)
     # Default: 50%, Note: Elasticsearch client natively uses 80%
     min-score-percentile: ${RETRIEVAL_SPARSE_MIN_SCORE_PERCENTILE:0.5}
@@ -136,6 +136,20 @@ retrieval:
       dense: ${RETRIEVAL_FUSION_WEIGHTS_DENSE:0.5}
       # Weight for sparse search results in fusion (when not using RRF)
       sparse: ${RETRIEVAL_FUSION_WEIGHTS_SPARSE:0.5}
+  reranker:
+    # Cross-encoder reranking of RRF-fused candidates before final top-K selection. Off by default:
+    # requires the ONNX export + tokenizer.json for cross-encoder/ms-marco-MiniLM-L-6-v2 on disk.
+    enabled: ${RETRIEVAL_RERANKER_ENABLED:true}
+    model-path: ${RETRIEVAL_RERANKER_MODEL_PATH:models/ms-marco-MiniLM-L-6-v2/model.onnx}
+    tokenizer-path: ${RETRIEVAL_RERANKER_TOKENIZER_PATH:models/ms-marco-MiniLM-L-6-v2/tokenizer.json}
+    # Max token length per query+passage pair fed to the model
+    max-sequence-length: ${RETRIEVAL_RERANKER_MAX_SEQUENCE_LENGTH:512}
+    # Caps how many RRF candidates get scored, bounding reranking latency
+    max-candidates: ${RETRIEVAL_RERANKER_MAX_CANDIDATES:20}
+    # Thread pool size for parallel cross-encoder scoring (CPU-bound work, so a bounded pool, not virtual threads)
+    parallelism: ${RETRIEVAL_RERANKER_PARALLELISM:4}
+    # Overall timeout for scoring a batch; falls back to original RRF order on breach
+    timeout-ms: ${RETRIEVAL_RERANKER_TIMEOUT_MS:2000}
 
 # Assistant Configuration - ReAct agent with RAG exposed as a tool
 assistant:

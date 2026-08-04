@@ -202,6 +202,19 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-aop</artifactId>
 		</dependency>
+
+		<!-- Cross-encoder reranking: local ONNX inference runtime (CPU) -->
+		<dependency>
+			<groupId>com.microsoft.onnxruntime</groupId>
+			<artifactId>onnxruntime</artifactId>
+			<version>1.19.2</version>
+		</dependency>
+		<!-- Hugging Face tokenizer bindings only (no DJL engine/model-zoo pulled in) -->
+		<dependency>
+			<groupId>ai.djl.huggingface</groupId>
+			<artifactId>tokenizers</artifactId>
+			<version>0.31.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>

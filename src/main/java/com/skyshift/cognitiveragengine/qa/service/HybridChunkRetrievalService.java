@@ -7,6 +7,7 @@ import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.qa.model.RetrievalResult;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
+import com.skyshift.cognitiveragengine.retrieval.reranker.service.CrossEncoderReranker;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.VectorSearchService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
 import io.micrometer.core.instrument.Counter;
@@ -35,6 +36,7 @@ public class HybridChunkRetrievalService {
     private final ElasticsearchChunkIndexService elasticsearchChunkIndexService;
     private final DocumentService documentService;
     private final RetrievalProperties retrievalProperties;
+    private final CrossEncoderReranker crossEncoderReranker;
     private final ObservationRegistry observationRegistry;
     private final DistributionSummary denseHitsSummary;
     private final DistributionSummary sparseHitsSummary;
@@ -49,6 +51,7 @@ public class HybridChunkRetrievalService {
             ElasticsearchChunkIndexService elasticsearchChunkIndexService,
             DocumentService documentService,
             RetrievalProperties retrievalProperties,
+            CrossEncoderReranker crossEncoderReranker,
             ObservationRegistry observationRegistry,
             MeterRegistry meterRegistry
     ) {
@@ -56,6 +59,7 @@ public class HybridChunkRetrievalService {
         this.elasticsearchChunkIndexService = elasticsearchChunkIndexService;
         this.documentService = documentService;
         this.retrievalProperties = retrievalProperties;
+        this.crossEncoderReranker = crossEncoderReranker;
         this.observationRegistry = observationRegistry;
         this.denseHitsSummary = DistributionSummary.builder("rag.retrieval.dense.hits")
                 .description("Dense (pgvector) search result hit count")
@@ -177,11 +181,13 @@ public class HybridChunkRetrievalService {
                     fused.size(), denseHits.size(), sparseHits.size());
             fusedCountSummary.record(fused.size());
 
-            List<Document> documents = fused.stream()
+            List<Document> fusedDocuments = fused.stream()
                     .sorted(Comparator.comparingDouble(RankedChunk::rrfScore).reversed())
-                    .limit(topK)
                     .map(this::rankedChunkToDocument)
                     .collect(Collectors.toList());
+
+            // No-op (returns fusedDocuments capped at topK, same as before) when reranking is disabled.
+            List<Document> documents = crossEncoderReranker.rerank(query, fusedDocuments, topK);
 
             observation
                     .lowCardinalityKeyValue("retrieval_outcome", "success")
@@ -201,11 +207,13 @@ public class HybridChunkRetrievalService {
             List<VectorHit> denseHits = (List<VectorHit>) denseResult.getResults();
             denseHitsSummary.record(denseHits.size());
 
-            List<Document> documents = denseHits.stream()
+            List<Document> denseDocuments = denseHits.stream()
                     .sorted(Comparator.comparingDouble(VectorHit::score).reversed())
-                    .limit(topK)
                     .map(this::vectorHitToDocument)
                     .collect(Collectors.toList());
+
+            // No-op (returns denseDocuments capped at topK, same as before) when reranking is disabled.
+            List<Document> documents = crossEncoderReranker.rerank(query, denseDocuments, topK);
 
             observation
                     .lowCardinalityKeyValue("retrieval_outcome", "degraded")
@@ -225,11 +233,13 @@ public class HybridChunkRetrievalService {
             List<KeywordHit> sparseHits = (List<KeywordHit>) sparseResult.getResults();
             sparseHitsSummary.record(sparseHits.size());
 
-            List<Document> documents = sparseHits.stream()
+            List<Document> sparseDocuments = sparseHits.stream()
                     .sorted(Comparator.comparingDouble(KeywordHit::normalizedScore).reversed())
-                    .limit(topK)
                     .map(this::keywordHitToDocument)
                     .collect(Collectors.toList());
+
+            // No-op (returns sparseDocuments capped at topK, same as before) when reranking is disabled.
+            List<Document> documents = crossEncoderReranker.rerank(query, sparseDocuments, topK);
 
             observation
                     .lowCardinalityKeyValue("retrieval_outcome", "degraded")
