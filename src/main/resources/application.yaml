@@ -214,6 +214,16 @@ resilience4j:
           - java.io.IOException
           - co.elastic.clients.transport.rest5_client.low_level.ResponseException
 
+# Classifier Configuration - Intent classification model
+classifier:
+  model:
+    name: ${CLASSIFIER_MODEL_NAME}
+    api-key: ${CLASSIFIER_API_KEY}
+    base-url: ${CLASSIFIER_BASE_URL}
+    options:
+      temperature: ${CLASSIFIER_TEMPERATURE}
+      max-tokens: ${CLASSIFIER_MAX_TOKENS}
+
 # Application Configuration - Custom app-level settings
 app:
   ingestion:
