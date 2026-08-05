@@ -2,6 +2,11 @@ spring:
   application:
     name: cognitive-rag-engine-test
 
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
   # PostgreSQL DataSource Configuration (Test)
   # Using port 5433 from docker-compose-test.yml to avoid conflicts
   datasource:
@@ -35,6 +40,15 @@ spring:
         options:
           model: nomic-embed-text
           truncate: true
+    vectorstore:
+      pgvector:
+        max-document-batch-size: 50
+
+  # Async Task Execution Configuration
+  task:
+    execution:
+      shutdown:
+        await-termination-period: 30s
 
   # Flyway Database Migration
   flyway:
@@ -48,16 +62,106 @@ spring:
   main:
     lazy-initialization: false
 
+# Observability - tracing/OTLP export is not relevant to integration tests and must not require
+# a real Langfuse endpoint to be reachable just to resolve placeholders at context startup.
+management:
+  tracing:
+    sampling:
+      probability: 0.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${LANGFUSE_OTEL_ENDPOINT:http://localhost:4318/v1/traces}
+          headers:
+            Authorization: ${LANGFUSE_OTEL_AUTH_HEADER:}
+
 # Document Ingestion Configuration (Test)
 document:
   ingestion:
-    chunk-size-tokens: 300
-    chunk-overlap-percentage: 20
+    chunk-size-chars: 300
+    chunk-overlap-chars: 20
     embedding-batch-size: 10
     elasticsearch-batch-size: 50
     max-retries: 2
     initial-retry-delay-ms: 500
     retry-backoff-multiplier: 2.0
+
+  # Document Upload Configuration (Test)
+  upload:
+    max-file-size: 20MB
+    max-filename-length: 255
+    max-extension-length: 10
+    supported-extensions: pdf
+
+# MinIO Object Storage Configuration (Test)
+# Shares the dev MinIO instance (deploy/docker-compose.yml) - no isolated test container.
+storage:
+  minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: cognitive-rag-engine
+
+# QA Configuration - LLM generation and final result limiting (Test)
+qa:
+  top-k: 3
+  chat-timeout-ms: 30000
+  temperature: 0.3
+  max-tokens: 2000
+
+# Retrieval Configuration - Dense + Sparse RRF Fusion (Test)
+retrieval:
+  dense:
+    top-k: 20
+    similarity-threshold: 0.5
+  sparse:
+    top-k: 20
+    min-score-percentile: 0.5
+  fusion:
+    strategy: rrf
+    rrf-k: 60
+    weights:
+      dense: 0.5
+      sparse: 0.5
+  reranker:
+    enabled: true
+    model-path: models/ms-marco-MiniLM-L-6-v2/model.onnx
+    tokenizer-path: models/ms-marco-MiniLM-L-6-v2/tokenizer.json
+    max-sequence-length: 512
+    max-candidates: 20
+    parallelism: 4
+    timeout-ms: 8000
+
+# Assistant Configuration - ReAct agent with RAG exposed as a tool (Test)
+assistant:
+  top-k-default: 3
+  max-tool-loops: 10
+  tool-timeout-ms: 30000
+  max-history-turns: 8
+  summarization-trigger-message-count: 6
+
+# Observability - raw prompt/completion capture (Test)
+observability:
+  capture-content: true
+
+# Classifier Configuration - Intent classification model (Test)
+# Uses the Groq API like production; api-key falls back to a dummy value when
+# CLASSIFIER_API_KEY isn't set so context load never depends on real credentials.
+classifier:
+  model:
+    name: llama-3.1-8b-instant
+    api-key: ${CLASSIFIER_API_KEY:test-classifier-api-key}
+    base-url: https://api.groq.com/openai/v1
+    options:
+      temperature: 0.1
+      max-tokens: 200
+
+# Application Configuration - Custom app-level settings (Test)
+app:
+  ingestion:
+    recovery:
+      interval-seconds: 3600
 
 # Logging Configuration (Test)
 logging:

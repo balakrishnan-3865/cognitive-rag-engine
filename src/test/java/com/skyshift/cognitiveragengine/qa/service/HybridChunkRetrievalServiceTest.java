@@ -1,5 +1,7 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skyshift.cognitiveragengine.common.observability.ObservabilityProperties;
 import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
 import com.skyshift.cognitiveragengine.qa.exception.RetrievalException;
@@ -7,7 +9,6 @@ import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.service.ElasticsearchChunkIndexService;
 import com.skyshift.cognitiveragengine.retrieval.reranker.service.CrossEncoderReranker;
-import com.skyshift.cognitiveragengine.retrieval.reranker.service.CrossEncoderService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.VectorSearchService;
 import com.skyshift.cognitiveragengine.retrieval.vectorstore.model.VectorHit;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -61,6 +62,8 @@ class HybridChunkRetrievalServiceTest {
                 retrievalProperties,
                 crossEncoderReranker,
                 ObservationRegistry.NOOP,
+                new ObjectMapper(),
+                new ObservabilityProperties(),
                 new SimpleMeterRegistry()
         );
         when(documentService.findCurrentReadyDocumentIds(100L)).thenReturn(DOCUMENT_IDS);

@@ -21,17 +21,17 @@ import java.util.Map;
 public class IntentClassifier {
 
     private final RuleBasedClassifier ruleBasedClassifier;
-    private final ChatClient classifierChatClient;
-    private final PromptTemplate intentClassifierPromptTemplate;
+    private final ChatClient intentClassificationChatClient;
+    private final PromptTemplate intentClassificationPromptTemplate;
 
     public IntentClassifier(
             RuleBasedClassifier ruleBasedClassifier,
-            @Qualifier("intentClassifierChatClient") ChatClient classifierChatClient,
-            @Qualifier("intentClassifierPromptTemplate") PromptTemplate intentClassifierPromptTemplate
+            @Qualifier("intentClassificationChatClient") ChatClient intentClassificationChatClient,
+            @Qualifier("intentClassificationPromptTemplate") PromptTemplate intentClassificationPromptTemplate
     ) {
         this.ruleBasedClassifier = ruleBasedClassifier;
-        this.classifierChatClient = classifierChatClient;
-        this.intentClassifierPromptTemplate = intentClassifierPromptTemplate;
+        this.intentClassificationChatClient = intentClassificationChatClient;
+        this.intentClassificationPromptTemplate = intentClassificationPromptTemplate;
     }
 
     /**
@@ -71,12 +71,12 @@ public class IntentClassifier {
 
         try {
             // Render the prompt with the query
-            String prompt = intentClassifierPromptTemplate.render(
+            String prompt = intentClassificationPromptTemplate.render(
                     Map.of("query", query)
             );
 
             // Call cost-optimized LLM model for classification with structured response
-            IntentClassificationResponse response = classifierChatClient.prompt(prompt)
+            IntentClassificationResponse response = intentClassificationChatClient.prompt(prompt)
                     .call()
                     .entity(IntentClassificationResponse.class);
 

@@ -152,6 +152,12 @@ management:
     web:
       exposure:
         include: "health,prometheus"
+  otlp:
+    metrics:
+      export:
+        enabled: false  # Metrics are pulled via /actuator/prometheus; the push-based OTLP metrics
+                         # sender has no configured collector and otherwise floods logs with
+                         # "Connection refused" retrying against its default localhost:4318 target
   tracing:
     sampling:
       probability: 1.0

@@ -7,6 +7,7 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -14,9 +15,10 @@ import org.springframework.core.io.ClassPathResource;
 
 @Slf4j
 @Configuration
+@EnableConfigurationProperties(IntentClassifierModelProperties.class)
 public class IntentClassifierConfiguration {
 
-    @Bean("intentClassificationChatModel")
+    @Bean(name = "intentClassificationChatModel", defaultCandidate = false)
     public ChatModel intentClassificationChatModel(IntentClassifierModelProperties properties) {
         log.info("Initializing intent classifier chat model: {}", properties.name());
 
@@ -37,13 +39,13 @@ public class IntentClassifierConfiguration {
                 .build();
     }
 
-    @Bean("intentClassificationChatClient")
+    @Bean(name = "intentClassificationChatClient", defaultCandidate = false)
     public ChatClient intentClassificationChatClient(ChatModel intentClassificationChatModel) {
         return ChatClient.builder(intentClassificationChatModel).build();
     }
 
     @Bean("intentClassificationPromptTemplate")
     public PromptTemplate intentClassificationPromptTemplate() {
-        return new PromptTemplate(new ClassPathResource("prompts/classifier/intent-classifier.txt"));
+        return new PromptTemplate(new ClassPathResource("prompts/classifier/intent-classifier.st"));
     }
 }

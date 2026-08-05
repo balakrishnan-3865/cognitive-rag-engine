@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.when;
  * resets between tests automatically.
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @Transactional
 class DocumentServiceVersioningIntegrationTest {
 
