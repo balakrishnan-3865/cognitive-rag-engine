@@ -93,6 +93,15 @@
 			<version>${spring-ai-alibaba.version}</version>
 		</dependency>
 
+		<!-- Spring AI Alibaba Graph Core: deterministic DAG / state graph engine.
+		     Version already governed by the spring-ai-alibaba-bom import above; declared
+		     explicitly here to match the agent-framework dependency's style. -->
+		<dependency>
+			<groupId>com.alibaba.cloud.ai</groupId>
+			<artifactId>spring-ai-alibaba-graph-core</artifactId>
+			<version>${spring-ai-alibaba.version}</version>
+		</dependency>
+
 		<!-- Spring AI OpenAI Starter (for Groq, which is OpenAI-compatible) -->
 		<dependency>
 			<groupId>org.springframework.ai</groupId>

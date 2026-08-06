@@ -20,10 +20,18 @@ public enum RoutingIntent {
 
     /**
      * Transactional database lookups using API tools.
-     * Claim IDs, status tracking, account queries -> Triggers API Tools
+     * A single, deterministic claim-status lookup with no other data source involved.
      * Example: "What's the status of claim CLM-123?", "Check my claim history"
      */
     CLAIM_STATUS_TOOL,
+
+    /**
+     * Multi-part queries that require decomposition, or queries that need both a claims-status
+     * lookup and a policy-document lookup to answer fully -> Routed through query planning and
+     * the subquery execution loop.
+     * Example: "What's the status of my last claim, and does my plan cover physical therapy?"
+     */
+    COMPLEX_MULTI_SOURCE,
 
     /**
      * Malicious, diagnostic, or out-of-scope topics.

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.skyshift.cognitiveragengine.claims.mapper.ClaimMapper">
+<mapper namespace="com.skyshift.cognitiveragengine.workflows.claims.mapper.ClaimMapper">
 
-    <select id="findByUserIdAndGroupIdSince" parameterType="com.skyshift.cognitiveragengine.claims.model.entity.ClaimEntity" resultType="com.skyshift.cognitiveragengine.claims.model.entity.ClaimEntity">
+    <select id="findByUserIdAndGroupIdBetween" resultType="com.skyshift.cognitiveragengine.workflows.claims.model.entity.ClaimEntity">
         SELECT
             id,
             user_id,
@@ -22,7 +22,8 @@
         FROM claims
         WHERE user_id = #{userId}
         AND group_id = #{groupId}
-        AND service_date >= #{fromDate}
+        AND service_date >= #{startDate}
+        AND service_date &lt;= #{endDate}
         ORDER BY service_date DESC
         LIMIT 10
     </select>

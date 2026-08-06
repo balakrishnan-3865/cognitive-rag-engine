@@ -1,4 +1,4 @@
-package com.skyshift.cognitiveragengine.claims.model.dto;
+package com.skyshift.cognitiveragengine.workflows.claims.model.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
