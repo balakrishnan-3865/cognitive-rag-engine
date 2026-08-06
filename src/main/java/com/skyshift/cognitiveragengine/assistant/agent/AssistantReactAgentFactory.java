@@ -6,6 +6,8 @@ import com.skyshift.cognitiveragengine.assistant.config.AssistantProperties;
 import com.skyshift.cognitiveragengine.common.exception.MalformedToolCallException;
 import com.skyshift.cognitiveragengine.common.exception.RecursionLimitExceededException;
 import com.skyshift.cognitiveragengine.common.exception.ToolExecutionTimeoutException;
+import com.skyshift.cognitiveragengine.tools.ClaimStatusTool;
+import com.skyshift.cognitiveragengine.tools.ContextKeys;
 import com.skyshift.cognitiveragengine.tools.KnowledgeBaseTool;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +20,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
@@ -33,6 +36,7 @@ public class AssistantReactAgentFactory {
 
     private final ChatModel chatModel;
     private final KnowledgeBaseTool knowledgeBaseTool;
+    private final ClaimStatusTool claimStatusTool;
     private final AssistantProperties assistantProperties;
     private final PromptTemplate assistantReactInstructionTemplate;
     private final ObservationRegistry observationRegistry;
@@ -40,27 +44,31 @@ public class AssistantReactAgentFactory {
     public AssistantReactAgentFactory(
             ChatModel chatModel,
             KnowledgeBaseTool knowledgeBaseTool,
+            ClaimStatusTool claimStatusTool,
             AssistantProperties assistantProperties,
             @Qualifier("assistantReactInstructionTemplate") PromptTemplate assistantReactInstructionTemplate,
             ObservationRegistry observationRegistry
     ) {
         this.chatModel = chatModel;
         this.knowledgeBaseTool = knowledgeBaseTool;
+        this.claimStatusTool = claimStatusTool;
         this.assistantProperties = assistantProperties;
         this.assistantReactInstructionTemplate = assistantReactInstructionTemplate;
         this.observationRegistry = observationRegistry;
     }
 
-    public ReactAgent createAgent(Long groupId, List<Document> retrievedDocuments) {
+    public ReactAgent createAgent(Long groupId, Long userId, List<Document> retrievedDocuments) {
+        Map<String, Object> context = new HashMap<>();
+        context.put(ContextKeys.GROUP_ID_CONTEXT_KEY, groupId);
+        context.put(ContextKeys.USER_ID_CONTEXT_KEY, userId);
+        context.put(ContextKeys.RESULT_HOLDER_CONTEXT_KEY, retrievedDocuments);
+
         return ReactAgent.builder()
                 .name("assistant-react-agent")
                 .model(chatModel)
                 .instruction(assistantReactInstructionTemplate.getTemplate())
-                .methodTools(knowledgeBaseTool)
-                .toolContext(Map.of(
-                        KnowledgeBaseTool.GROUP_ID_CONTEXT_KEY, groupId,
-                        KnowledgeBaseTool.RESULT_HOLDER_CONTEXT_KEY, retrievedDocuments
-                ))
+                .methodTools(knowledgeBaseTool, claimStatusTool)
+                .toolContext(context)
                 .compileConfig(CompileConfig.builder()
                         .recursionLimit(assistantProperties.getMaxToolLoops())
                         .build())

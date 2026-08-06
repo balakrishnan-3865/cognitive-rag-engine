@@ -45,7 +45,7 @@ public class AssistantService {
         this.assistantProperties = assistantProperties;
     }
 
-    public AssistantResponse ask(String message, Long groupId, Long conversationId) {
+    public AssistantResponse ask(String message, Long groupId, Long userId, Long conversationId) {
         log.info("Processing assistant message: groupId={}", groupId);
 
         Long resolvedConversationId = conversationService.getOrCreateConversation(conversationId, groupId);
@@ -56,7 +56,7 @@ public class AssistantService {
                     resolvedConversationId, assistantProperties.getMaxHistoryTurns()));
             fullMessages.add(new UserMessage(message));
 
-            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, retrievedDocuments);
+            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, retrievedDocuments);
             AssistantMessage assistantMessage = assistantReactAgentFactory.callWithErrorHandling(reactAgent, new ArrayList<>(fullMessages));
 
             conversationService.appendMessage(resolvedConversationId, MessageRole.USER, message, null);
@@ -74,7 +74,7 @@ public class AssistantService {
 
         } catch (MalformedToolCallException e) {
             log.warn("Malformed tool call detected (recoverable): groupId={}, error={}", groupId, e.getMessage());
-            return attemptRepairLoop(message, groupId, resolvedConversationId, retrievedDocuments, e);
+            return attemptRepairLoop(message, groupId, userId, resolvedConversationId, retrievedDocuments, e);
 
         } catch (RecursionLimitExceededException e) {
             log.error("Recursion limit exceeded: groupId={}", groupId);
@@ -99,6 +99,7 @@ public class AssistantService {
     private AssistantResponse attemptRepairLoop(
             String originalMessage,
             Long groupId,
+            Long userId,
             Long conversationId,
             List<Document> retrievedDocuments,
             MalformedToolCallException initialError) {
@@ -113,7 +114,7 @@ public class AssistantService {
             String repairInstruction = buildRepairInstruction(initialError);
             fullMessages.add(new UserMessage(repairInstruction));
 
-            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, retrievedDocuments);
+            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, retrievedDocuments);
             AssistantMessage assistantMessage = reactAgent.call(fullMessages);
 
             log.info("Repair loop succeeded on retry: groupId={}", groupId);
