@@ -1,4 +1,4 @@
-package com.skyshift.cognitiveragengine.assistant.agent;
+package com.skyshift.cognitiveragengine.tools;
 
 import com.alibaba.cloud.ai.graph.agent.tools.ToolContextHelper;
 import com.skyshift.cognitiveragengine.assistant.config.AssistantProperties;
@@ -25,7 +25,7 @@ import java.util.stream.IntStream;
  */
 @Slf4j
 @Component
-public class AssistantKnowledgeBaseTool {
+public class KnowledgeBaseTool {
 
     public static final String GROUP_ID_CONTEXT_KEY = "assistant.groupId";
     public static final String RESULT_HOLDER_CONTEXT_KEY = "assistant.retrievedDocuments";
@@ -38,7 +38,7 @@ public class AssistantKnowledgeBaseTool {
     private final ObservationRegistry observationRegistry;
     private final ObservabilityProperties observabilityProperties;
 
-    public AssistantKnowledgeBaseTool(
+    public KnowledgeBaseTool(
             HybridChunkRetrievalService hybridChunkRetrievalService,
             AssistantProperties assistantProperties,
             ObservationRegistry observationRegistry,

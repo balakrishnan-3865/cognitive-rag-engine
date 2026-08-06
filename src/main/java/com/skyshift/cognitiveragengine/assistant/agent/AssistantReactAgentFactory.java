@@ -6,6 +6,7 @@ import com.skyshift.cognitiveragengine.assistant.config.AssistantProperties;
 import com.skyshift.cognitiveragengine.common.exception.MalformedToolCallException;
 import com.skyshift.cognitiveragengine.common.exception.RecursionLimitExceededException;
 import com.skyshift.cognitiveragengine.common.exception.ToolExecutionTimeoutException;
+import com.skyshift.cognitiveragengine.tools.KnowledgeBaseTool;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -31,20 +32,20 @@ import java.util.concurrent.TimeoutException;
 public class AssistantReactAgentFactory {
 
     private final ChatModel chatModel;
-    private final AssistantKnowledgeBaseTool assistantKnowledgeBaseTool;
+    private final KnowledgeBaseTool knowledgeBaseTool;
     private final AssistantProperties assistantProperties;
     private final PromptTemplate assistantReactInstructionTemplate;
     private final ObservationRegistry observationRegistry;
 
     public AssistantReactAgentFactory(
             ChatModel chatModel,
-            AssistantKnowledgeBaseTool assistantKnowledgeBaseTool,
+            KnowledgeBaseTool knowledgeBaseTool,
             AssistantProperties assistantProperties,
             @Qualifier("assistantReactInstructionTemplate") PromptTemplate assistantReactInstructionTemplate,
             ObservationRegistry observationRegistry
     ) {
         this.chatModel = chatModel;
-        this.assistantKnowledgeBaseTool = assistantKnowledgeBaseTool;
+        this.knowledgeBaseTool = knowledgeBaseTool;
         this.assistantProperties = assistantProperties;
         this.assistantReactInstructionTemplate = assistantReactInstructionTemplate;
         this.observationRegistry = observationRegistry;
@@ -55,10 +56,10 @@ public class AssistantReactAgentFactory {
                 .name("assistant-react-agent")
                 .model(chatModel)
                 .instruction(assistantReactInstructionTemplate.getTemplate())
-                .methodTools(assistantKnowledgeBaseTool)
+                .methodTools(knowledgeBaseTool)
                 .toolContext(Map.of(
-                        AssistantKnowledgeBaseTool.GROUP_ID_CONTEXT_KEY, groupId,
-                        AssistantKnowledgeBaseTool.RESULT_HOLDER_CONTEXT_KEY, retrievedDocuments
+                        KnowledgeBaseTool.GROUP_ID_CONTEXT_KEY, groupId,
+                        KnowledgeBaseTool.RESULT_HOLDER_CONTEXT_KEY, retrievedDocuments
                 ))
                 .compileConfig(CompileConfig.builder()
                         .recursionLimit(assistantProperties.getMaxToolLoops())
