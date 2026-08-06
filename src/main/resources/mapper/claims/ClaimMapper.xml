@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.claims.mapper.ClaimMapper">
+
+    <select id="findByUserIdAndGroupIdSince" parameterType="com.skyshift.cognitiveragengine.claims.model.entity.ClaimEntity" resultType="com.skyshift.cognitiveragengine.claims.model.entity.ClaimEntity">
+        SELECT
+            id,
+            user_id,
+            group_id,
+            policy_id,
+            claim_reference,
+            claim_status,
+            claim_amount,
+            service_date,
+            filing_date,
+            provider_name,
+            diagnosis_code,
+            description,
+            created_at,
+            updated_at
+        FROM claims
+        WHERE user_id = #{userId}
+        AND group_id = #{groupId}
+        AND service_date >= #{fromDate}
+        ORDER BY service_date DESC
+        LIMIT 10
+    </select>
+</mapper>

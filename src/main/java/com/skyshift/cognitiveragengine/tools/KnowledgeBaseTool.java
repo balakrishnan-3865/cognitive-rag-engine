@@ -20,15 +20,12 @@ import java.util.stream.IntStream;
 /**
  * Retrieval-only tool for the assistant's ReAct agent: it returns raw evidence chunks and lets
  * the agent's own LLM call synthesize the answer. groupId is never a tool argument the model can
- * set - it is bound server-side via {@link ToolContext} (see GROUP_ID_CONTEXT_KEY) so a prompt
- * cannot talk the agent into querying a different group's corpus.
+ * set - it is bound server-side via {@link ToolContext} (see {@link ContextKeys#GROUP_ID_CONTEXT_KEY})
+ * so a prompt cannot talk the agent into querying a different group's corpus.
  */
 @Slf4j
 @Component
 public class KnowledgeBaseTool {
-
-    public static final String GROUP_ID_CONTEXT_KEY = "assistant.groupId";
-    public static final String RESULT_HOLDER_CONTEXT_KEY = "assistant.retrievedDocuments";
 
     private static final String TOOL_NAME = "searchKnowledgeBase";
     private static final String OBSERVATION_NAME = "tool_call";
@@ -68,7 +65,7 @@ public class KnowledgeBaseTool {
     }
 
     private String doSearch(Observation observation, String query, ToolContext toolContext) {
-        Long groupId = ToolContextHelper.getMetadata(toolContext, GROUP_ID_CONTEXT_KEY, Long.class)
+        Long groupId = ToolContextHelper.getMetadata(toolContext, ContextKeys.GROUP_ID_CONTEXT_KEY, Long.class)
                 .orElseThrow(() -> new IllegalStateException("groupId missing from tool context"));
 
         log.debug("Assistant tool searching knowledge base: query='{}', groupId={}", query, groupId);
@@ -99,7 +96,7 @@ public class KnowledgeBaseTool {
 
     @SuppressWarnings("unchecked")
     private void recordRetrievedDocuments(ToolContext toolContext, List<Document> documents) {
-        ToolContextHelper.getMetadata(toolContext, RESULT_HOLDER_CONTEXT_KEY, List.class)
+        ToolContextHelper.getMetadata(toolContext, ContextKeys.RESULT_HOLDER_CONTEXT_KEY, List.class)
                 .ifPresent(holder -> ((List<Document>) holder).addAll(documents));
     }
 }

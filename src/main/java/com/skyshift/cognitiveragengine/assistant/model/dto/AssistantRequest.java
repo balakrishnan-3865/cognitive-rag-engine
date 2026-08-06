@@ -12,6 +12,10 @@ public record AssistantRequest(
         @Positive(message = "GroupId must be positive")
         Long groupId,
 
+        @NotNull(message = "UserId cannot be null")
+        @Positive(message = "UserId must be positive")
+        Long userId,
+
         @Positive(message = "ConversationId must be positive")
         Long conversationId
 ) {}
