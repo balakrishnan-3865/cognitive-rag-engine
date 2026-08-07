@@ -230,6 +230,11 @@ classifier:
       temperature: ${CLASSIFIER_TEMPERATURE}
       max-tokens: ${CLASSIFIER_MAX_TOKENS}
 
+# Workflow Configuration - Claims query agent orchestrator StateGraph
+workflow:
+  max-subqueries: ${WORKFLOW_MAX_SUBQUERIES:3}
+  graph-recursion-limit: ${WORKFLOW_GRAPH_RECURSION_LIMIT:8}
+
 # Application Configuration - Custom app-level settings
 app:
   ingestion:

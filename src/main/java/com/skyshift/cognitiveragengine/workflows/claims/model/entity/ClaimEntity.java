@@ -1,4 +1,4 @@
-package com.skyshift.cognitiveragengine.claims.model.entity;
+package com.skyshift.cognitiveragengine.workflows.claims.model.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
