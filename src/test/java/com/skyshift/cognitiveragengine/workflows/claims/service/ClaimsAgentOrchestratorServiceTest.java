@@ -90,6 +90,17 @@ class ClaimsAgentOrchestratorServiceTest {
         assertNull(response.answer());
     }
 
+    @Test
+    void graphInvocationThrows_returnsGracefulFailureResponseInsteadOfPropagating() {
+        when(claimsAgentCompiledGraph.invoke(anyMap())).thenThrow(new RuntimeException("graph engine failure"));
+
+        AssistantQueryResponse response = serviceWithMockGraph().query(QUERY, GROUP_ID, USER_ID);
+
+        assertFalse(response.answered());
+        assertEquals("Unable to process this request.", response.reasonMessage());
+        assertNull(response.answer());
+    }
+
     private static OverAllState stateWith(Map<String, Object> data) {
         OverAllStateBuilder builder = OverAllStateBuilder.builder().withData(data);
         for (String key : data.keySet()) {
