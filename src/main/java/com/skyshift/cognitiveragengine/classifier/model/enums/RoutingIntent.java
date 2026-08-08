@@ -13,25 +13,13 @@ public enum RoutingIntent {
     GENERAL_GREETING,
 
     /**
-     * Deep policy document and manual lookups requiring RAG.
-     * Example: "What is a deductible?", "What's covered under my plan?", "Explain copay rules"
+     * Any non-trivial query - policy-document lookups, claim-status lookups, or queries needing
+     * both - resolved by unified_react_agent's single ReAct tool-calling loop, which has both
+     * KnowledgeBaseTool and ClaimStatusTool available and can call either or both as needed.
+     * Example: "What is a deductible?", "What's the status of claim CLM-123?",
+     * "What's the status of my last claim, and does my plan cover physical therapy?"
      */
-    POLICY_DOCUMENT_RAG,
-
-    /**
-     * Transactional database lookups using API tools.
-     * A single, deterministic claim-status lookup with no other data source involved.
-     * Example: "What's the status of claim CLM-123?", "Check my claim history"
-     */
-    CLAIM_STATUS_TOOL,
-
-    /**
-     * Multi-part queries that require decomposition, or queries that need both a claims-status
-     * lookup and a policy-document lookup to answer fully -> Routed through query planning and
-     * the subquery execution loop.
-     * Example: "What's the status of my last claim, and does my plan cover physical therapy?"
-     */
-    COMPLEX_MULTI_SOURCE,
+    AGENT_QUERY,
 
     /**
      * Malicious, diagnostic, or out-of-scope topics.

@@ -2,6 +2,7 @@ package com.skyshift.cognitiveragengine.workflows.claims.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.skyshift.cognitiveragengine.workflows.claims.state.AgentWorkflowState;
 import com.skyshift.cognitiveragengine.workflows.claims.state.WorkflowStateKeys;
 import lombok.extern.slf4j.Slf4j;
 
@@ -18,8 +19,8 @@ public class OutOfScopeNode implements NodeAction {
 
     @Override
     public Map<String, Object> apply(OverAllState state) {
-        String originalQuery = state.value(WorkflowStateKeys.ORIGINAL_QUERY, "");
-        log.info("out_of_scope refusing query: '{}'", originalQuery);
+        AgentWorkflowState workflowState = new AgentWorkflowState(state);
+        log.info("out_of_scope refusing query: '{}'", workflowState.originalQuery());
 
         return Map.of(WorkflowStateKeys.FINAL_ANSWER, REFUSAL_MESSAGE);
     }

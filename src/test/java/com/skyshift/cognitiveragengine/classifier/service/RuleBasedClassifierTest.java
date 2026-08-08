@@ -41,9 +41,8 @@ class RuleBasedClassifierTest {
 
     @Test
     void claimIdMention_fallsThroughToLlm() {
-        // A structured claim-ID fast-path here would misroute compound queries (claim ID + policy
-        // question) straight to CLAIM_STATUS_TOOL, silently dropping the policy half - the LLM
-        // classifier is now the sole decider of CLAIM_STATUS_TOOL vs. COMPLEX_MULTI_SOURCE.
+        // No claim-ID fast-path here: claim-status, policy, and multi-source queries all resolve
+        // to the same AGENT_QUERY intent, so the LLM classifier is the sole decider for non-greeting input.
         IntentClassificationResponse response = classifier.matchRules("What's the status of claim CLM-123?");
 
         assertNull(response);

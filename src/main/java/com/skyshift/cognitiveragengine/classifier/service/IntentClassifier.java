@@ -92,14 +92,15 @@ public class IntentClassifier {
 
         } catch (Exception e) {
             long elapsedMs = System.currentTimeMillis() - startTime;
-            log.warn("Intent classification failed: {}, defaulting to POLICY_DOCUMENT_RAG, timeMs={}",
+            log.warn("Intent classification failed: {}, defaulting to AGENT_QUERY, timeMs={}",
                     e.getMessage(), elapsedMs);
 
-            // Safe fallback: treat unknown queries as policy document RAG
+            // Safe fallback: route unknown queries through the unified ReAct agent rather than
+            // refusing them outright
             return new IntentClassificationResponse(
-                    RoutingIntent.POLICY_DOCUMENT_RAG,
+                    RoutingIntent.AGENT_QUERY,
                     0.0,
-                    "Classification failed, defaulting to policy document RAG"
+                    "Classification failed, defaulting to agent query"
             );
         }
     }

@@ -8,11 +8,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "workflow")
 public record WorkflowProperties(
-        Integer maxSubqueries,
         Integer graphRecursionLimit
 ) {
     public WorkflowProperties {
-        if (maxSubqueries == null) maxSubqueries = 3;
         if (graphRecursionLimit == null) graphRecursionLimit = 8;
     }
 }

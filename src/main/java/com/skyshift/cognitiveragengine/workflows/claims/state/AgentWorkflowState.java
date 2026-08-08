@@ -3,8 +3,6 @@ package com.skyshift.cognitiveragengine.workflows.claims.state;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.skyshift.cognitiveragengine.classifier.model.enums.RoutingIntent;
 
-import java.util.List;
-
 /**
  * Thin, per-request read layer over the graph's {@link OverAllState}. {@code OverAllState} is
  * {@code final} and its own javadoc states it is not thread-safe, so this wraps a delegate via
@@ -36,23 +34,15 @@ public class AgentWorkflowState {
         return delegate.value(WorkflowStateKeys.ROUTING_INTENT, (RoutingIntent) null);
     }
 
-    public List<String> subqueries() {
-        return delegate.value(WorkflowStateKeys.SUBQUERIES, List.of());
-    }
-
-    public int currentSubqueryIndex() {
-        return delegate.value(WorkflowStateKeys.CURRENT_SUBQUERY_INDEX, 0);
-    }
-
-    public List<SubqueryResult> subqueryResults() {
-        return delegate.value(WorkflowStateKeys.SUBQUERY_RESULTS, List.of());
-    }
-
-    public ReflectionResult reflectionResult() {
-        return delegate.value(WorkflowStateKeys.REFLECTION_RESULT, (ReflectionResult) null);
-    }
-
     public String finalAnswer() {
         return delegate.value(WorkflowStateKeys.FINAL_ANSWER, "");
+    }
+
+    public Boolean answered() {
+        return delegate.value(WorkflowStateKeys.ANSWERED, (Boolean) null);
+    }
+
+    public String failureReason() {
+        return delegate.value(WorkflowStateKeys.FAILURE_REASON, (String) null);
     }
 }

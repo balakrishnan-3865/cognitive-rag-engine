@@ -14,10 +14,10 @@ import java.util.regex.Matcher;
  *
  * Single pass: Check for leading greeting only. If found with minimal trailing text → GENERAL_GREETING.
  * Everything else - including queries mentioning a claim ID - falls through to the LLM classifier,
- * which is the sole decider of CLAIM_STATUS_TOOL vs. COMPLEX_MULTI_SOURCE vs. POLICY_DOCUMENT_RAG.
- * A structured claim-ID fast-path was deliberately removed here: it would misroute compound queries
- * (e.g. a claim ID mentioned alongside an unrelated policy question) straight to CLAIM_STATUS_TOOL,
- * silently dropping the policy half of the question.
+ * which is the sole decider of AGENT_QUERY vs. OUT_OF_SCOPE for non-greeting input.
+ * A structured claim-ID fast-path is deliberately not added here: claim-status, policy, and
+ * multi-source queries all resolve to the same AGENT_QUERY intent regardless, so a fast-path
+ * would only save one classification call while adding a second place routing logic can drift.
  *
  * Returns null if no rules match to delegate to LLM classifier.
  */

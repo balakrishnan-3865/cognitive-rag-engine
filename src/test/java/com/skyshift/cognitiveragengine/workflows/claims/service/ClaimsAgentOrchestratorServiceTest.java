@@ -5,15 +5,12 @@ import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.OverAllStateBuilder;
 import com.skyshift.cognitiveragengine.workflows.claims.model.dto.AssistantQueryResponse;
-import com.skyshift.cognitiveragengine.workflows.claims.state.ReflectionResult;
-import com.skyshift.cognitiveragengine.workflows.claims.state.SubqueryResult;
 import com.skyshift.cognitiveragengine.workflows.claims.state.WorkflowStateKeys;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -40,10 +37,10 @@ class ClaimsAgentOrchestratorServiceTest {
     }
 
     @Test
-    void groundedReflection_answersTrue() {
+    void unifiedReactAgentAnswered_answersTrue() {
         OverAllState state = stateWith(Map.of(
                 WorkflowStateKeys.FINAL_ANSWER, FINAL_ANSWER,
-                WorkflowStateKeys.REFLECTION_RESULT, new ReflectionResult(true, "Fully grounded.")
+                WorkflowStateKeys.ANSWERED, true
         ));
         when(claimsAgentCompiledGraph.invoke(anyMap())).thenReturn(Optional.of(state));
 
@@ -55,22 +52,22 @@ class ClaimsAgentOrchestratorServiceTest {
     }
 
     @Test
-    void ungroundedReflection_answersFalseButKeepsAnswerText() {
+    void unifiedReactAgentFailed_answersFalseWithReason() {
         OverAllState state = stateWith(Map.of(
-                WorkflowStateKeys.FINAL_ANSWER, FINAL_ANSWER,
-                WorkflowStateKeys.REFLECTION_RESULT, new ReflectionResult(false, "Missing supporting evidence.")
+                WorkflowStateKeys.FINAL_ANSWER, "I wasn't able to process this request. Please try rephrasing your question or try again shortly.",
+                WorkflowStateKeys.ANSWERED, false,
+                WorkflowStateKeys.FAILURE_REASON, "Tool execution timed out"
         ));
         when(claimsAgentCompiledGraph.invoke(anyMap())).thenReturn(Optional.of(state));
 
         AssistantQueryResponse response = serviceWithMockGraph().query(QUERY, GROUP_ID, USER_ID);
 
         assertFalse(response.answered());
-        assertEquals("Missing supporting evidence.", response.reasonMessage());
-        assertEquals(FINAL_ANSWER, response.answer());
+        assertEquals("Tool execution timed out", response.reasonMessage());
     }
 
     @Test
-    void absentReflectionResult_directChatPath_answersTrue() {
+    void absentAnsweredKey_directChatPath_answersTrue() {
         OverAllState state = stateWith(Map.of(
                 WorkflowStateKeys.FINAL_ANSWER, "Hello! How can I help you today?"
         ));
@@ -83,27 +80,14 @@ class ClaimsAgentOrchestratorServiceTest {
     }
 
     @Test
-    void allSubqueriesFailed_answersFalseRegardlessOfReflection() {
-        SubqueryResult failedResult = new SubqueryResult("sub-query-1", "", List.of(), true, "Tool execution timed out");
-        OverAllState state = stateWith(Map.of(
-                WorkflowStateKeys.FINAL_ANSWER, "",
-                WorkflowStateKeys.SUBQUERY_RESULTS, List.of(failedResult),
-                WorkflowStateKeys.REFLECTION_RESULT, new ReflectionResult(true, "false positive - should not win")
-        ));
-        when(claimsAgentCompiledGraph.invoke(anyMap())).thenReturn(Optional.of(state));
+    void graphProducesNoFinalState_returnsGracefulFailureResponse() {
+        when(claimsAgentCompiledGraph.invoke(anyMap())).thenReturn(Optional.empty());
 
         AssistantQueryResponse response = serviceWithMockGraph().query(QUERY, GROUP_ID, USER_ID);
 
         assertFalse(response.answered());
-        assertTrue(response.reasonMessage().contains("Tool execution timed out"));
-    }
-
-    @Test
-    void graphProducesNoFinalState_throwsIllegalStateException() {
-        when(claimsAgentCompiledGraph.invoke(anyMap())).thenReturn(Optional.empty());
-
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                () -> serviceWithMockGraph().query(QUERY, GROUP_ID, USER_ID));
+        assertEquals("Unable to process this request.", response.reasonMessage());
+        assertNull(response.answer());
     }
 
     private static OverAllState stateWith(Map<String, Object> data) {

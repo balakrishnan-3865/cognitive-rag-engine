@@ -159,7 +159,6 @@ classifier:
 
 # Workflow Configuration - Claims query agent orchestrator StateGraph (Test)
 workflow:
-  max-subqueries: 3
   graph-recursion-limit: 8
 
 # Application Configuration - Custom app-level settings (Test)

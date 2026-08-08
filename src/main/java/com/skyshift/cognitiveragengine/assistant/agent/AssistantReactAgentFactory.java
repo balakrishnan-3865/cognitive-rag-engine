@@ -6,6 +6,7 @@ import com.skyshift.cognitiveragengine.assistant.config.AssistantProperties;
 import com.skyshift.cognitiveragengine.common.exception.MalformedToolCallException;
 import com.skyshift.cognitiveragengine.common.exception.RecursionLimitExceededException;
 import com.skyshift.cognitiveragengine.common.exception.ToolExecutionTimeoutException;
+import com.skyshift.cognitiveragengine.common.exception.UncategorizedAgentException;
 import com.skyshift.cognitiveragengine.tools.ClaimStatusTool;
 import com.skyshift.cognitiveragengine.tools.ContextKeys;
 import com.skyshift.cognitiveragengine.tools.KnowledgeBaseTool;
@@ -96,6 +97,7 @@ public class AssistantReactAgentFactory {
         if (isToolTimeout(e)) {
             throw new ToolExecutionTimeoutException(e.getMessage());
         }
+        throw new UncategorizedAgentException(e.getMessage(), e);
     }
 
     private static boolean isToolNotFound(Exception e) {

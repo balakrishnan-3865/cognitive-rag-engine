@@ -10,11 +10,9 @@ public final class WorkflowStateKeys {
     public static final String GROUP_ID = "groupId";
     public static final String USER_ID = "userId";
     public static final String ROUTING_INTENT = "routingIntent";
-    public static final String SUBQUERIES = "subqueries";
-    public static final String CURRENT_SUBQUERY_INDEX = "currentSubqueryIndex";
-    public static final String SUBQUERY_RESULTS = "subqueryResults";
-    public static final String REFLECTION_RESULT = "reflectionResult";
     public static final String FINAL_ANSWER = "finalAnswer";
+    public static final String ANSWERED = "answered";
+    public static final String FAILURE_REASON = "failureReason";
 
     private WorkflowStateKeys() {
     }

@@ -4,6 +4,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.skyshift.cognitiveragengine.classifier.model.dto.IntentClassificationResponse;
 import com.skyshift.cognitiveragengine.classifier.service.IntentClassifier;
+import com.skyshift.cognitiveragengine.workflows.claims.state.AgentWorkflowState;
 import com.skyshift.cognitiveragengine.workflows.claims.state.WorkflowStateKeys;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,7 +24,8 @@ public class IntentCheckNode implements NodeAction {
 
     @Override
     public Map<String, Object> apply(OverAllState state) {
-        String originalQuery = state.value(WorkflowStateKeys.ORIGINAL_QUERY, "");
+        AgentWorkflowState workflowState = new AgentWorkflowState(state);
+        String originalQuery = workflowState.originalQuery();
 
         IntentClassificationResponse classification = intentClassifier.classify(originalQuery);
         log.info("intent_check classified query as {} (confidence={})", classification.intent(), classification.confidence());
