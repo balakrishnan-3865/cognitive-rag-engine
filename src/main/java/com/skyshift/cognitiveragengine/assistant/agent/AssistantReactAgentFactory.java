@@ -82,22 +82,21 @@ public class AssistantReactAgentFactory {
         try {
             return agent.call(messages);
         } catch (Exception e) {
-            categorizeAndThrowException(e);
-            throw new RuntimeException("Unexpected agent error after categorization", e);
+            throw categorizeException(e);
         }
     }
 
-    private void categorizeAndThrowException(Exception e) {
+    private RuntimeException categorizeException(Exception e) {
         if (isToolNotFound(e) || isMalformedJson(e)) {
-            throw new MalformedToolCallException(e.getMessage(), e);
+            return new MalformedToolCallException(e.getMessage(), e);
         }
         if (isRecursionLimitExceeded(e)) {
-            throw new RecursionLimitExceededException(e.getMessage());
+            return new RecursionLimitExceededException(e.getMessage());
         }
         if (isToolTimeout(e)) {
-            throw new ToolExecutionTimeoutException(e.getMessage());
+            return new ToolExecutionTimeoutException(e.getMessage());
         }
-        throw new UncategorizedAgentException(e.getMessage(), e);
+        return new UncategorizedAgentException(e.getMessage(), e);
     }
 
     private static boolean isToolNotFound(Exception e) {
