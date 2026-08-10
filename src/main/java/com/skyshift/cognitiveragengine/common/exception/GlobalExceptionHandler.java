@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.common.exception;
 
 import com.skyshift.cognitiveragengine.auth.exception.DuplicateUserException;
+import com.skyshift.cognitiveragengine.auth.exception.InvalidCredentialsException;
 import com.skyshift.cognitiveragengine.document.exception.DocumentVersionConflictException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -60,6 +61,21 @@ public class GlobalExceptionHandler {
             request.getDescription(false).replace("uri=", "")
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentialsException(
+        InvalidCredentialsException ex,
+        WebRequest request
+    ) {
+        log.error("Authentication failed: {}", ex.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(
+            HttpStatus.UNAUTHORIZED.value(),
+            HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(StorageException.class)

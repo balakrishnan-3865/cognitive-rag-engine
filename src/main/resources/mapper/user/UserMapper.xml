@@ -54,4 +54,11 @@
     <select id="existsByEmail" resultType="boolean">
         SELECT EXISTS (SELECT 1 FROM users WHERE email = #{email})
     </select>
+
+    <update id="updateLastLoginAt">
+        UPDATE users
+        SET last_login_at = #{lastLoginAt},
+            updated_at = current_timestamp
+        WHERE id = #{id}
+    </update>
 </mapper>

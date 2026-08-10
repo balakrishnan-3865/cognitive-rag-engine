@@ -1,6 +1,9 @@
 package com.skyshift.cognitiveragengine.auth.controller;
 
+import com.skyshift.cognitiveragengine.auth.model.dto.LoginRequest;
 import com.skyshift.cognitiveragengine.auth.model.dto.RegisterRequest;
+import com.skyshift.cognitiveragengine.auth.model.dto.TokenPairResponse;
+import com.skyshift.cognitiveragengine.auth.service.AuthService;
 import com.skyshift.cognitiveragengine.user.model.dto.UserSummaryResponse;
 import com.skyshift.cognitiveragengine.user.service.UserService;
 import jakarta.validation.Valid;
@@ -18,9 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final UserService userService;
+    private final AuthService authService;
 
-    public AuthController(UserService userService) {
+    public AuthController(UserService userService, AuthService authService) {
         this.userService = userService;
+        this.authService = authService;
     }
 
     @PostMapping("/register")
@@ -32,5 +37,16 @@ public class AuthController {
         log.info("User registered successfully: userId={}, username={}", response.id(), response.username());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<TokenPairResponse> login(@Valid @RequestBody LoginRequest request) {
+        log.info("Login request received: username={}", request.username());
+
+        TokenPairResponse response = authService.login(request);
+
+        log.info("Login successful: username={}", request.username());
+
+        return ResponseEntity.ok(response);
     }
 }

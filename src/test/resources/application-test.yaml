@@ -55,6 +55,12 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+# JWT Configuration (Test) - fixed secret/short TTLs, no dependency on local .env
+jwt:
+  secret: test-jwt-secret-key-for-integration-tests-minimum-32-bytes-long
+  access-token-ttl-seconds: 900
+  refresh-token-ttl-seconds: 604800
+
   # Disable lazy initialization check to prevent Ollama validation at startup
   lazy-initialization: false
 
