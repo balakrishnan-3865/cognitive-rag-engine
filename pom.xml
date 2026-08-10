@@ -179,13 +179,22 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 
-		<!-- Spring Security core: UserDetails/UserDetailsService/BCryptPasswordEncoder types only.
-		     Deliberately not spring-boot-starter-security - that starter's autoconfiguration would
-		     lock every existing endpoint behind generated-password basic auth before Phase 3 wires
-		     up an explicit SecurityFilterChain. -->
+		<!-- Spring Security: core (UserDetails/PasswordEncoder types), config (HttpSecurity/
+		     SecurityFilterChain DSL) and web (OncePerRequestFilter, FilterChainProxy) - added in
+		     Phase 3 to build an explicit SecurityFilterChain. Deliberately not
+		     spring-boot-starter-security - that starter's autoconfiguration would additionally
+		     apply Boot's default generated-password basic-auth security chain ahead of ours. -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-config</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-web</artifactId>
 		</dependency>
 
 		<!-- JJWT: access-token issuance/parsing (HS256 signed, jjwt-jackson for claims (de)serialization) -->
