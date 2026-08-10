@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.user.mapper.UserMapper">
+
+    <insert id="insert" parameterType="com.skyshift.cognitiveragengine.user.model.entity.UserEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (
+            group_id,
+            username,
+            email,
+            password_hash,
+            first_name,
+            last_name,
+            role,
+            enabled,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{groupId},
+            #{username},
+            #{email},
+            #{passwordHash},
+            #{firstName},
+            #{lastName},
+            #{role},
+            #{enabled},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="selectByUsername" resultType="com.skyshift.cognitiveragengine.user.model.entity.UserEntity">
+        SELECT
+            id,
+            group_id,
+            username,
+            email,
+            password_hash,
+            first_name,
+            last_name,
+            role,
+            enabled,
+            last_login_at,
+            created_at,
+            updated_at
+        FROM users
+        WHERE username = #{username}
+    </select>
+
+    <select id="existsByUsername" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM users WHERE username = #{username})
+    </select>
+
+    <select id="existsByEmail" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM users WHERE email = #{email})
+    </select>
+</mapper>
