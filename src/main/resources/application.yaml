@@ -69,6 +69,12 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+# JWT Configuration - stateless access tokens, opaque (hashed) refresh tokens
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS}
+  refresh-token-ttl-seconds: ${JWT_REFRESH_TOKEN_TTL_SECONDS}
+
 # Document Ingestion Configuration - Recursive Character Chunking
 document:
   ingestion:
