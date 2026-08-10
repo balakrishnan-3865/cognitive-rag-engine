@@ -1,5 +1,6 @@
 package com.skyshift.cognitiveragengine.common.exception;
 
+import com.skyshift.cognitiveragengine.auth.exception.InvalidRefreshTokenException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,5 +40,18 @@ class GlobalExceptionHandlerSecurityTest {
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals(403, response.getBody().status());
         assertEquals("/api/v1/qa/ask", response.getBody().path());
+    }
+
+    @Test
+    void handleInvalidRefreshTokenException_returns401StandardErrorResponseShape() {
+        WebRequest request = mock(WebRequest.class);
+        when(request.getDescription(false)).thenReturn("uri=/api/v1/auth/refresh");
+
+        ResponseEntity<ErrorResponse> response = handler.handleInvalidRefreshTokenException(
+            new InvalidRefreshTokenException("Invalid or expired refresh token"), request);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals(401, response.getBody().status());
+        assertEquals("/api/v1/auth/refresh", response.getBody().path());
     }
 }

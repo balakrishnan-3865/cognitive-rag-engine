@@ -1,15 +1,18 @@
 package com.skyshift.cognitiveragengine.auth.controller;
 
 import com.skyshift.cognitiveragengine.auth.model.dto.LoginRequest;
+import com.skyshift.cognitiveragengine.auth.model.dto.RefreshRequest;
 import com.skyshift.cognitiveragengine.auth.model.dto.RegisterRequest;
 import com.skyshift.cognitiveragengine.auth.model.dto.TokenPairResponse;
 import com.skyshift.cognitiveragengine.auth.service.AuthService;
+import com.skyshift.cognitiveragengine.user.model.AuthenticatedUser;
 import com.skyshift.cognitiveragengine.user.model.dto.UserSummaryResponse;
 import com.skyshift.cognitiveragengine.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,5 +51,38 @@ public class AuthController {
         log.info("Login successful: username={}", request.username());
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenPairResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        log.info("Refresh token request received");
+
+        TokenPairResponse response = authService.refresh(request);
+
+        log.info("Refresh successful");
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal AuthenticatedUser principal) {
+        log.info("Logout request received: userId={}", principal.getId());
+
+        authService.logout(principal.getId());
+
+        return ResponseEntity.noContent().build();
+    }
+
+    // Unauthenticated by design (RFC 7009-style token revocation): possession of the refresh
+    // token itself is the proof of authority to kill it, so this works even when the caller's
+    // access token has already expired. Always 204, whether or not anything actually matched -
+    // see AuthService.revoke for why the response must not vary with token validity.
+    @PostMapping("/revoke")
+    public ResponseEntity<Void> revoke(@Valid @RequestBody RefreshRequest request) {
+        log.info("Revoke request received");
+
+        authService.revoke(request.refreshToken());
+
+        return ResponseEntity.noContent().build();
     }
 }

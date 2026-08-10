@@ -12,6 +12,8 @@ public interface UserMapper {
 
     UserEntity selectByUsername(@Param("username") String username);
 
+    UserEntity selectById(@Param("id") Long id);
+
     boolean existsByUsername(@Param("username") String username);
 
     boolean existsByEmail(@Param("email") String email);

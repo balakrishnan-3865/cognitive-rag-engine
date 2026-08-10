@@ -19,7 +19,63 @@
         )
         ON CONFLICT (user_id) DO UPDATE SET
             token_hash = EXCLUDED.token_hash,
+            previous_token_hash = NULL,
             expires_at = EXCLUDED.expires_at,
             updated_at = EXCLUDED.updated_at
     </insert>
+
+    <select id="selectByTokenHash" resultType="com.skyshift.cognitiveragengine.auth.model.entity.RefreshTokenEntity">
+        SELECT
+            id,
+            user_id,
+            token_hash,
+            previous_token_hash,
+            expires_at,
+            created_at,
+            updated_at
+        FROM refresh_tokens
+        WHERE token_hash = #{tokenHash}
+    </select>
+
+    <!--
+        Compare-and-swap rotation: only matches the row still holding oldTokenHash, so a
+        concurrent second caller racing on the same raw token affects 0 rows here (the winner
+        already moved token_hash away). previous_token_hash is set to the value being replaced
+        so a later replay of oldTokenHash can be recognized as reuse via deleteByPreviousTokenHash.
+    -->
+    <update id="rotateByTokenHash">
+        UPDATE refresh_tokens
+        SET previous_token_hash = token_hash,
+            token_hash = #{newTokenHash},
+            expires_at = #{expiresAt},
+            updated_at = #{updatedAt}
+        WHERE token_hash = #{oldTokenHash}
+          AND expires_at > #{updatedAt}
+    </update>
+
+    <!--
+        A hash matching previous_token_hash means the caller presented a token that was already
+        rotated away - either a legitimate concurrent-request loser or a genuine replay attack.
+        Either way the row is deleted so the entire session is force-revoked.
+    -->
+    <delete id="deleteByPreviousTokenHash">
+        DELETE FROM refresh_tokens
+        WHERE previous_token_hash = #{previousTokenHash}
+    </delete>
+
+    <delete id="deleteByUserId">
+        DELETE FROM refresh_tokens
+        WHERE user_id = #{userId}
+    </delete>
+
+    <!--
+        Used by /revoke: unconditional delete by the current token_hash, no expiry check. A
+        presented token that doesn't match anything (garbage, already rotated away, or belongs to
+        no row) simply deletes 0 rows - the caller gets the same response either way, since
+        revocation must not double as an oracle for whether a given token string was ever valid.
+    -->
+    <delete id="deleteByTokenHash">
+        DELETE FROM refresh_tokens
+        WHERE token_hash = #{tokenHash}
+    </delete>
 </mapper>

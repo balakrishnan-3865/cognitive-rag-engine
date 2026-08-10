@@ -17,6 +17,7 @@ public class RefreshTokenEntity {
     private Long id;
     private Long userId;
     private String tokenHash;
+    private String previousTokenHash;
     private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

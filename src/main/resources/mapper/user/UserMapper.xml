@@ -47,6 +47,24 @@
         WHERE username = #{username}
     </select>
 
+    <select id="selectById" resultType="com.skyshift.cognitiveragengine.user.model.entity.UserEntity">
+        SELECT
+            id,
+            group_id,
+            username,
+            email,
+            password_hash,
+            first_name,
+            last_name,
+            role,
+            enabled,
+            last_login_at,
+            created_at,
+            updated_at
+        FROM users
+        WHERE id = #{id}
+    </select>
+
     <select id="existsByUsername" resultType="boolean">
         SELECT EXISTS (SELECT 1 FROM users WHERE username = #{username})
     </select>
