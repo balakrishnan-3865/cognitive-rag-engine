@@ -20,8 +20,11 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -128,5 +131,42 @@ class SecurityConfigIntegrationTest {
     void actuatorHealth_remainsReachableUnauthenticated() throws Exception {
         mockMvc.perform(get("/actuator/health"))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void corsPreflight_allowedOrigin_returnsOkWithAllowOriginHeader() throws Exception {
+        mockMvc.perform(options("/api/v1/qa/ask")
+                .header("Origin", "http://localhost:4200")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "Authorization,Content-Type"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"))
+            .andExpect(header().string("Access-Control-Allow-Methods", containsString("POST")));
+    }
+
+    @Test
+    void corsPreflight_disallowedOrigin_isForbiddenWithoutAllowOriginHeader() throws Exception {
+        mockMvc.perform(options("/api/v1/qa/ask")
+                .header("Origin", "http://evil.example.com")
+                .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isForbidden())
+            .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+    }
+
+    @Test
+    @Transactional
+    void actualRequest_allowedOrigin_carriesAllowOriginHeaderAndReachesController() throws Exception {
+        when(qaService.askQuestion(anyString(), anyLong()))
+            .thenReturn(new QAResponse(true, "", Collections.emptyList(), "the answer"));
+        String accessToken = obtainAccessToken("sec_cfg_cors_valid");
+
+        mockMvc.perform(post("/api/v1/qa/ask")
+                .header("Origin", "http://localhost:4200")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(qaRequestJson()))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"))
+            .andExpect(jsonPath("$.answer").value("the answer"));
     }
 }

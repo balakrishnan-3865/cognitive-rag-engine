@@ -61,6 +61,10 @@ jwt:
   access-token-ttl-seconds: 900
   refresh-token-ttl-seconds: 604800
 
+# CORS Configuration (Test) - fixed origin, no dependency on local .env
+cors:
+  allowed-origins: http://localhost:4200
+
   # Disable lazy initialization check to prevent Ollama validation at startup
   lazy-initialization: false
 
