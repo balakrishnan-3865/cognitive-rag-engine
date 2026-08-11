@@ -56,8 +56,18 @@ public class UserService {
             throw new DuplicateUserException("Username or email already exists");
         }
 
+        return toSummary(entity);
+    }
+
+    public UserSummaryResponse getCurrentUser(Long userId) {
+        UserEntity entity = userMapper.selectById(userId);
+        return toSummary(entity);
+    }
+
+    private UserSummaryResponse toSummary(UserEntity entity) {
         return new UserSummaryResponse(
             entity.getId(),
+            entity.getGroupId(),
             entity.getUsername(),
             entity.getEmail(),
             entity.getFirstName(),
