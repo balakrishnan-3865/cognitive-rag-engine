@@ -3,14 +3,15 @@ package com.skyshift.cognitiveragengine.document.controller;
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentCreatedResponse;
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentUploadRequest;
 import com.skyshift.cognitiveragengine.document.service.DocumentService;
+import com.skyshift.cognitiveragengine.user.model.AuthenticatedUser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
@@ -25,21 +26,19 @@ public class DocumentController {
 
     @PostMapping("/upload")
     public ResponseEntity<DocumentCreatedResponse> uploadDocument(
-        @ModelAttribute DocumentUploadRequest uploadRequest
+        @ModelAttribute DocumentUploadRequest uploadRequest,
+        @AuthenticationPrincipal AuthenticatedUser principal
     ) {
-        log.info("Document upload request received: groupId={}", uploadRequest.groupId());
-
-        // TODO: Extract userId from SecurityContext when security is implemented
-        Long uploadedUserId = 1L; // Placeholder
+        log.info("Document upload request received: groupId={}", principal.getGroupId());
 
         Long documentId = documentService.uploadDocument(
             uploadRequest.file(),
-            uploadRequest.groupId(),
-            uploadedUserId
+            principal.getGroupId(),
+            principal.getId()
         );
 
         log.info("Document uploaded successfully: documentId={}, groupId={}",
-            documentId, uploadRequest.groupId());
+            documentId, principal.getGroupId());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(new DocumentCreatedResponse(documentId));
     }
@@ -47,23 +46,21 @@ public class DocumentController {
     @PostMapping("/{documentId}/versions")
     public ResponseEntity<DocumentCreatedResponse> uploadNewVersion(
         @PathVariable Long documentId,
-        @ModelAttribute DocumentUploadRequest uploadRequest
+        @ModelAttribute DocumentUploadRequest uploadRequest,
+        @AuthenticationPrincipal AuthenticatedUser principal
     ) {
         log.info("New document version upload request received: documentId={}, groupId={}",
-            documentId, uploadRequest.groupId());
-
-        // TODO: Extract userId from SecurityContext when security is implemented
-        Long uploadedUserId = 1L; // Placeholder
+            documentId, principal.getGroupId());
 
         Long newDocumentId = documentService.uploadNewVersion(
             documentId,
-            uploadRequest.groupId(),
+            principal.getGroupId(),
             uploadRequest.file(),
-            uploadedUserId
+            principal.getId()
         );
 
         log.info("New document version uploaded successfully: documentId={}, parentDocumentId={}, groupId={}",
-            newDocumentId, documentId, uploadRequest.groupId());
+            newDocumentId, documentId, principal.getGroupId());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(new DocumentCreatedResponse(newDocumentId));
     }
@@ -72,15 +69,15 @@ public class DocumentController {
     public ResponseEntity<Void> revertToVersion(
         @PathVariable Long documentId,
         @PathVariable Long targetVersionId,
-        @RequestParam Long groupId
+        @AuthenticationPrincipal AuthenticatedUser principal
     ) {
         log.info("Revert request received: documentId={}, targetVersionId={}, groupId={}",
-            documentId, targetVersionId, groupId);
+            documentId, targetVersionId, principal.getGroupId());
 
-        documentService.revertToVersion(documentId, targetVersionId, groupId);
+        documentService.revertToVersion(documentId, targetVersionId, principal.getGroupId());
 
         log.info("Reverted to previous version successfully: documentId={}, targetVersionId={}, groupId={}",
-            documentId, targetVersionId, groupId);
+            documentId, targetVersionId, principal.getGroupId());
 
         return ResponseEntity.noContent().build();
     }
