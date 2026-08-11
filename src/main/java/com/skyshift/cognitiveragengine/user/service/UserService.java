@@ -17,6 +17,10 @@ import java.time.LocalDateTime;
 @Service
 public class UserService {
 
+    // No group management/self-serve group selection exists yet - every new user is placed in
+    // group 1. Revisit once a many-to-many user-group relation is introduced.
+    private static final Long DEFAULT_GROUP_ID = 1L;
+
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -35,7 +39,7 @@ public class UserService {
         }
 
         UserEntity entity = UserEntity.builder()
-            .groupId(request.groupId())
+            .groupId(DEFAULT_GROUP_ID)
             .username(request.username())
             .email(request.email())
             .passwordHash(passwordEncoder.encode(request.password()))

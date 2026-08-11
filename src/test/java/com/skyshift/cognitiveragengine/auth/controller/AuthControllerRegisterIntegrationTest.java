@@ -176,8 +176,7 @@ class AuthControllerRegisterIntegrationTest {
             "email", email,
             "password", password,
             "firstName", "Test",
-            "lastName", "User",
-            "groupId", 1
+            "lastName", "User"
         ));
     }
 }

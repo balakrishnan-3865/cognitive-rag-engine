@@ -62,8 +62,7 @@ class SecurityConfigIntegrationTest {
             "email", username + "@example.com",
             "password", RAW_PASSWORD,
             "firstName", "Sec",
-            "lastName", "Cfg",
-            "groupId", 1
+            "lastName", "Cfg"
         ));
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

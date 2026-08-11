@@ -59,13 +59,17 @@ class DocumentIdorClosureIntegrationTest {
             "email", username + "@example.com",
             "password", RAW_PASSWORD,
             "firstName", "Doc",
-            "lastName", "Idor",
-            "groupId", groupId
+            "lastName", "Idor"
         ));
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(registerBody))
             .andExpect(status().isCreated());
+
+        // Registration no longer accepts a client-supplied groupId (every new user defaults to
+        // group 1) - set it directly to simulate a user who already belongs to a distinct group,
+        // so this test can still prove per-principal groupId isolation.
+        jdbcTemplate.update("update users set group_id = ? where username = ?", groupId, username);
 
         String loginBody = objectMapper.writeValueAsString(Map.of("username", username, "password", RAW_PASSWORD));
         String response = mockMvc.perform(post("/api/v1/auth/login")

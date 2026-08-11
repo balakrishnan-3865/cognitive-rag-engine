@@ -49,8 +49,7 @@ class AuthControllerLoginIntegrationTest {
             "email", username + "@example.com",
             "password", RAW_PASSWORD,
             "firstName", "Login",
-            "lastName", "Ctrl",
-            "groupId", 1
+            "lastName", "Ctrl"
         ));
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

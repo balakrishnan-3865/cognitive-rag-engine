@@ -3,8 +3,6 @@ package com.skyshift.cognitiveragengine.auth.model.dto;
 import com.skyshift.cognitiveragengine.auth.validation.ValidPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
 @ValidPassword
 public record RegisterRequest(
@@ -22,9 +20,5 @@ public record RegisterRequest(
         String firstName,
 
         @NotBlank(message = "Last name cannot be blank")
-        String lastName,
-
-        @NotNull(message = "GroupId cannot be null")
-        @Positive(message = "GroupId must be positive")
-        Long groupId
+        String lastName
 ) {}
