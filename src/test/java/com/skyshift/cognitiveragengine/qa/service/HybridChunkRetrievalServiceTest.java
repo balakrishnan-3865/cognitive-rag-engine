@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skyshift.cognitiveragengine.common.exception.BusinessException;
 import com.skyshift.cognitiveragengine.common.observability.ObservabilityProperties;
 import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
@@ -66,7 +67,9 @@ class HybridChunkRetrievalServiceTest {
                 new ObservabilityProperties(),
                 new SimpleMeterRegistry()
         );
-        when(documentService.findCurrentReadyDocumentIds(100L)).thenReturn(DOCUMENT_IDS);
+        // lenient: the NoCurrentReadyDocuments test re-stubs this with a different return value,
+        // which would otherwise trip strict-stubbing on this default.
+        lenient().when(documentService.resolveSearchableDocumentIds(100L, null)).thenReturn(DOCUMENT_IDS);
         // Mirrors the real no-op contract (reranking disabled): cap to topN, preserve incoming order.
         lenient().when(crossEncoderReranker.rerank(anyString(), anyList(), anyInt()))
                 .thenAnswer(invocation -> {
@@ -162,7 +165,7 @@ class HybridChunkRetrievalServiceTest {
 
     @Test
     void testRetrieveRelevantChunks_NoCurrentReadyDocuments_SkipsSearchAndReturnsEmpty() {
-        when(documentService.findCurrentReadyDocumentIds(100L)).thenReturn(List.of());
+        when(documentService.resolveSearchableDocumentIds(100L, null)).thenReturn(List.of());
 
         DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 5);
 
@@ -221,6 +224,47 @@ class HybridChunkRetrievalServiceTest {
 
         Document document = bundle.documents().get(0);
         assertEquals("hybrid", document.getMetadata().get("source"));
+    }
+
+    // ========== DOCUMENT-SCOPED RETRIEVAL (single documentId) ==========
+
+    @Test
+    void testRetrieveRelevantChunks_WithDocumentId_ScopesBothSourcesToSingleDocument() throws IOException {
+        List<Long> singleDocument = List.of(42L);
+        List<VectorHit> denseHits = List.of(vectorHit(42L, 1L, "Scoped chunk"));
+        when(documentService.resolveSearchableDocumentIds(100L, 42L)).thenReturn(singleDocument);
+        when(vectorSearchService.search("query", 100L, singleDocument, DENSE_POOL_SIZE)).thenReturn(denseHits);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, singleDocument, SPARSE_POOL_SIZE))
+                .thenReturn(List.of());
+
+        DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, 42L, 5);
+
+        assertEquals(1, bundle.documents().size());
+        assertEquals(42L, bundle.documents().get(0).getMetadata().get("documentId"));
+        verify(vectorSearchService).search("query", 100L, singleDocument, DENSE_POOL_SIZE);
+        verify(elasticsearchChunkIndexService).searchChunks("query", 100L, singleDocument, SPARSE_POOL_SIZE);
+    }
+
+    @Test
+    void testRetrieveRelevantChunks_NullDocumentId_BehavesLikeWholeGroupSearch() throws IOException {
+        List<VectorHit> denseHits = List.of(vectorHit(10L, 1L, "Chunk"));
+        when(vectorSearchService.search("query", 100L, DOCUMENT_IDS, DENSE_POOL_SIZE)).thenReturn(denseHits);
+        when(elasticsearchChunkIndexService.searchChunks("query", 100L, DOCUMENT_IDS, SPARSE_POOL_SIZE))
+                .thenReturn(List.of());
+
+        DocumentBundle bundle = service.retrieveRelevantChunks("query", 100L, null, 5);
+
+        assertEquals(1, bundle.documents().size());
+    }
+
+    @Test
+    void testRetrieveRelevantChunks_InvalidDocumentId_PropagatesRejectionWithoutSearchingOrFallingBack() {
+        when(documentService.resolveSearchableDocumentIds(100L, 999L))
+                .thenThrow(new BusinessException("Document not found or not ready: documentId=999"));
+
+        assertThrows(BusinessException.class, () -> service.retrieveRelevantChunks("query", 100L, 999L, 5));
+
+        verifyNoInteractions(vectorSearchService, elasticsearchChunkIndexService);
     }
 
     // ========== HELPERS ==========

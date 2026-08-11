@@ -28,7 +28,7 @@ public class ClaimsQueryController {
         @Valid @RequestBody AssistantQueryRequest request,
         @AuthenticationPrincipal AuthenticatedUser principal
     ) {
-        log.info("Received claims query request: groupId={}", principal.getGroupId());
-        return claimsAgentOrchestratorService.query(request.query(), principal.getGroupId(), principal.getId());
+        log.info("Received claims query request: groupId={}, documentId={}", principal.getGroupId(), request.documentId());
+        return claimsAgentOrchestratorService.query(request.query(), principal.getGroupId(), principal.getId(), request.documentId());
     }
 }

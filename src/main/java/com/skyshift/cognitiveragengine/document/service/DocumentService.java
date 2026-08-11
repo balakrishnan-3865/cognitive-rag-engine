@@ -7,6 +7,7 @@ import com.skyshift.cognitiveragengine.document.event.DocumentUploadedEvent;
 import com.skyshift.cognitiveragengine.document.exception.DocumentUploadException;
 import com.skyshift.cognitiveragengine.document.exception.DocumentVersionConflictException;
 import com.skyshift.cognitiveragengine.document.mapper.DocumentMapper;
+import com.skyshift.cognitiveragengine.document.model.dto.DocumentSummaryResponse;
 import com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity;
 import com.skyshift.cognitiveragengine.storage.service.ObjectStorageService;
 import lombok.extern.slf4j.Slf4j;
@@ -135,6 +136,38 @@ public class DocumentService {
      */
     public List<Long> findCurrentReadyDocumentIds(Long groupId) {
         return documentMapper.findCurrentReadyDocumentIds(groupId);
+    }
+
+    /**
+     * Resolves the document ids QA retrieval should search: every ready document in the group,
+     * or - when the caller (e.g. the UI's single-document picker) supplies documentId - just that
+     * one, provided it's READY, the current version, and owned by groupId. A documentId that
+     * fails any of those checks is rejected outright rather than silently falling back to the
+     * whole group, so a cross-tenant or stale id never widens (or narrows) the search unexpectedly.
+     */
+    public List<Long> resolveSearchableDocumentIds(Long groupId, Long documentId) {
+        if (documentId == null) {
+            return findCurrentReadyDocumentIds(groupId);
+        }
+        DocumentEntity document = documentMapper.selectByIdAndGroupId(documentId, groupId);
+        if (document == null
+                || !"READY".equals(document.getStatus())
+                || !Boolean.TRUE.equals(document.getIsCurrentVersion())) {
+            throw new BusinessException("Document not found or not ready: documentId=" + documentId);
+        }
+        return List.of(documentId);
+    }
+
+    public List<DocumentSummaryResponse> listDocuments(Long groupId, Long userId) {
+        return documentMapper.selectCurrentVersionsByGroupIdAndUserId(groupId, userId).stream()
+            .map(entity -> new DocumentSummaryResponse(
+                entity.getId(),
+                entity.getFileName(),
+                "v" + entity.getVersionNumber(),
+                entity.getStatus(),
+                entity.getUpdatedAt()
+            ))
+            .toList();
     }
 
     @Transactional

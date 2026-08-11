@@ -8,6 +8,7 @@ public final class ContextKeys {
 
     public static final String GROUP_ID_CONTEXT_KEY = "groupId";
     public static final String USER_ID_CONTEXT_KEY = "userId";
+    public static final String DOCUMENT_ID_CONTEXT_KEY = "documentId";
     public static final String RESULT_HOLDER_CONTEXT_KEY = "rag.retrievedDocuments";
 
     private ContextKeys() {

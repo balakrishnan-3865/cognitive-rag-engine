@@ -14,6 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -21,6 +22,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -136,6 +138,26 @@ class DocumentIdorClosureIntegrationTest {
         MockMultipartFile file = new MockMultipartFile("file", "claim.pdf", "application/pdf", "dummy".getBytes());
 
         mockMvc.perform(multipart("/api/v1/documents/upload").file(file))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @Transactional
+    void listDocuments_authenticated_derivesGroupIdAndUserIdFromPrincipal() throws Exception {
+        LoggedInUser user = registerAndLogin("doc_idor_list_user", 8);
+        when(documentService.listDocuments(anyLong(), anyLong())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/documents")
+                .header("Authorization", "Bearer " + user.accessToken()))
+            .andExpect(status().isOk());
+
+        verify(documentService).listDocuments(eq(user.groupId()), eq(user.id()));
+    }
+
+    @Test
+    @Transactional
+    void listDocuments_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/documents"))
             .andExpect(status().isUnauthorized());
     }
 }

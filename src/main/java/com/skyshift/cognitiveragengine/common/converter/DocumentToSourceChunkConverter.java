@@ -2,8 +2,10 @@ package com.skyshift.cognitiveragengine.common.converter;
 
 import com.skyshift.cognitiveragengine.qa.model.SourceChunk;
 import org.springframework.ai.document.Document;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 public class DocumentToSourceChunkConverter {
 
@@ -23,9 +25,17 @@ public class DocumentToSourceChunkConverter {
 		);
 	}
 
+	/**
+	 * Deduped by chunkId, keeping the first occurrence's data - a ReAct agent can call
+	 * searchKnowledgeBase once per sub-query, and the same chunk can satisfy more than one, so
+	 * the raw document list handed in here is not already unique.
+	 */
 	public static List<SourceChunk> convertAll(List<Document> documents) {
-		return documents.stream()
-				.map(DocumentToSourceChunkConverter::convert)
-				.collect(Collectors.toList());
+		Map<Long, SourceChunk> byChunkId = new LinkedHashMap<>();
+		for (Document doc : documents) {
+			SourceChunk chunk = convert(doc);
+			byChunkId.putIfAbsent(chunk.chunkId(), chunk);
+		}
+		return new ArrayList<>(byChunkId.values());
 	}
 }

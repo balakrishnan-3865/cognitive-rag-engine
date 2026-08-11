@@ -9,6 +9,7 @@ import com.skyshift.cognitiveragengine.common.converter.DocumentToSourceChunkCon
 import com.skyshift.cognitiveragengine.common.exception.MalformedToolCallException;
 import com.skyshift.cognitiveragengine.common.exception.RecursionLimitExceededException;
 import com.skyshift.cognitiveragengine.common.exception.ToolExecutionTimeoutException;
+import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.qa.model.SourceChunk;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -31,22 +32,30 @@ public class AssistantService {
     private final AssistantReactAgentFactory assistantReactAgentFactory;
     private final ConversationService conversationService;
     private final ConversationSummaryService conversationSummaryService;
+    private final DocumentService documentService;
     private final AssistantProperties assistantProperties;
 
     public AssistantService(
             AssistantReactAgentFactory assistantReactAgentFactory,
             ConversationService conversationService,
             ConversationSummaryService conversationSummaryService,
+            DocumentService documentService,
             AssistantProperties assistantProperties
     ) {
         this.assistantReactAgentFactory = assistantReactAgentFactory;
         this.conversationService = conversationService;
         this.conversationSummaryService = conversationSummaryService;
+        this.documentService = documentService;
         this.assistantProperties = assistantProperties;
     }
 
-    public AssistantResponse ask(String message, Long groupId, Long userId, Long conversationId) {
-        log.info("Processing assistant message: groupId={}", groupId);
+    public AssistantResponse ask(String message, Long groupId, Long userId, Long conversationId, Long documentId) {
+        log.info("Processing assistant message: groupId={}, documentId={}", groupId, documentId);
+
+        // Invalid/inaccessible documentId is a clear rejection (BusinessException -> 400 via
+        // GlobalExceptionHandler) - validated before any conversation/agent work so it can never
+        // be folded into the graceful-degradation responses below.
+        documentService.resolveSearchableDocumentIds(groupId, documentId);
 
         Long resolvedConversationId = conversationService.getOrCreateConversation(conversationId, groupId);
         List<Document> retrievedDocuments = new CopyOnWriteArrayList<>();
@@ -56,7 +65,7 @@ public class AssistantService {
                     resolvedConversationId, assistantProperties.getMaxHistoryTurns()));
             fullMessages.add(new UserMessage(message));
 
-            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, retrievedDocuments);
+            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, documentId, retrievedDocuments);
             AssistantMessage assistantMessage = assistantReactAgentFactory.callWithErrorHandling(reactAgent, new ArrayList<>(fullMessages));
 
             conversationService.appendMessage(resolvedConversationId, MessageRole.USER, message, null);
@@ -74,7 +83,7 @@ public class AssistantService {
 
         } catch (MalformedToolCallException e) {
             log.warn("Malformed tool call detected (recoverable): groupId={}, error={}", groupId, e.getMessage());
-            return attemptRepairLoop(message, groupId, userId, resolvedConversationId, retrievedDocuments, e);
+            return attemptRepairLoop(message, groupId, userId, resolvedConversationId, documentId, retrievedDocuments, e);
 
         } catch (RecursionLimitExceededException e) {
             log.error("Recursion limit exceeded: groupId={}", groupId);
@@ -101,6 +110,7 @@ public class AssistantService {
             Long groupId,
             Long userId,
             Long conversationId,
+            Long documentId,
             List<Document> retrievedDocuments,
             MalformedToolCallException initialError) {
 
@@ -114,7 +124,7 @@ public class AssistantService {
             String repairInstruction = buildRepairInstruction(initialError);
             fullMessages.add(new UserMessage(repairInstruction));
 
-            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, retrievedDocuments);
+            ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, documentId, retrievedDocuments);
             AssistantMessage assistantMessage = reactAgent.call(fullMessages);
 
             log.info("Repair loop succeeded on retry: groupId={}", groupId);

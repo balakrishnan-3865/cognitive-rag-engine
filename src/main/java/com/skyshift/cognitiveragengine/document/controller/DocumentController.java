@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.document.controller;
 
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentCreatedResponse;
+import com.skyshift.cognitiveragengine.document.model.dto.DocumentSummaryResponse;
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentUploadRequest;
 import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.user.model.AuthenticatedUser;
@@ -8,11 +9,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -22,6 +26,18 @@ public class DocumentController {
 
     public DocumentController(DocumentService documentService) {
         this.documentService = documentService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<DocumentSummaryResponse>> listDocuments(
+        @AuthenticationPrincipal AuthenticatedUser principal
+    ) {
+        List<DocumentSummaryResponse> documents = documentService.listDocuments(
+            principal.getGroupId(),
+            principal.getId()
+        );
+
+        return ResponseEntity.ok(documents);
     }
 
     @PostMapping("/upload")

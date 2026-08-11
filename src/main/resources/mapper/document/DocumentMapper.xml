@@ -192,4 +192,34 @@
         AND is_current_version = true
         AND deleted = false
     </select>
+
+    <select id="selectCurrentVersionsByGroupIdAndUserId" resultType="com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity">
+        SELECT
+            id,
+            group_id,
+            uploaded_user_id,
+            file_name,
+            file_extension,
+            context_type,
+            file_size,
+            file_hash,
+            storage_bucket,
+            storage_object_key,
+            status,
+            deleted,
+            failure_reason,
+            root_document_id,
+            version_number,
+            is_current_version,
+            uploaded_at,
+            processed_at,
+            created_at,
+            updated_at
+        FROM documents
+        WHERE group_id = #{groupId}
+        AND uploaded_user_id = #{userId}
+        AND is_current_version = true
+        AND deleted = false
+        ORDER BY updated_at DESC
+    </select>
 </mapper>

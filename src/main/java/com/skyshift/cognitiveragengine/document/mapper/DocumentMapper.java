@@ -35,4 +35,8 @@ public interface DocumentMapper {
     DocumentEntity findCurrentVersionInLineage(
         @Param("rootDocumentId") Long rootDocumentId,
         @Param("excludeId") Long excludeId);
+
+    List<DocumentEntity> selectCurrentVersionsByGroupIdAndUserId(
+        @Param("groupId") Long groupId,
+        @Param("userId") Long userId);
 }

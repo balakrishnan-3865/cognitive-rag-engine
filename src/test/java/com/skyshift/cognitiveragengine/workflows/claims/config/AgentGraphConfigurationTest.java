@@ -77,7 +77,7 @@ class AgentGraphConfigurationTest {
         String query = "What's the status of claim CLM-123?";
         when(intentClassifier.classify(query)).thenReturn(
                 new IntentClassificationResponse(RoutingIntent.AGENT_QUERY, 0.9, "agent query"));
-        when(assistantReactAgentFactory.createAgent(any(), any(), any())).thenReturn(reactAgent);
+        when(assistantReactAgentFactory.createAgent(any(), any(), any(), any())).thenReturn(reactAgent);
         when(assistantReactAgentFactory.callWithErrorHandling(any(), anyList()))
                 .thenReturn(new AssistantMessage("Claim CLM-123 is approved."));
 

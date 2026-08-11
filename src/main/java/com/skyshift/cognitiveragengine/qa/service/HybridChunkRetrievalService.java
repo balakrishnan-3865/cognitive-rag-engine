@@ -108,11 +108,20 @@ public class HybridChunkRetrievalService {
      * - Both failed → throw RetrievalException (data integrity issue)
      */
     public DocumentBundle retrieveRelevantChunks(String query, Long groupId, int topK) {
+        return retrieveRelevantChunks(query, groupId, null, topK);
+    }
+
+    /**
+     * documentId, when supplied, narrows retrieval to that single document (validated as
+     * READY/current/group-owned by DocumentService.resolveSearchableDocumentIds) instead of
+     * every ready document in the group.
+     */
+    public DocumentBundle retrieveRelevantChunks(String query, Long groupId, Long documentId, int topK) {
         Observation observation = Observation.createNotStarted(OBSERVATION_NAME, observationRegistry)
                 .lowCardinalityKeyValue("groupId", String.valueOf(groupId));
 
         return observation.observe(() -> {
-            List<Long> documentIds = documentService.findCurrentReadyDocumentIds(groupId);
+            List<Long> documentIds = documentService.resolveSearchableDocumentIds(groupId, documentId);
             if (documentIds.isEmpty()) {
                 log.debug("No current READY documents for groupId={}, skipping retrieval", groupId);
                 return new DocumentBundle(List.of());

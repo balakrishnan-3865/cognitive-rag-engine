@@ -97,7 +97,7 @@ class IdorClosureIntegrationTest {
     @Transactional
     void assistantAsk_authenticated_derivesIdsFromPrincipal_ignoringSpoofedBodyFields() throws Exception {
         LoggedInUser user = registerAndLogin("idor_assistant_user", 5);
-        when(assistantService.ask(anyString(), anyLong(), anyLong(), any()))
+        when(assistantService.ask(anyString(), anyLong(), anyLong(), any(), any()))
             .thenReturn(new AssistantResponse(true, "", Collections.emptyList(), "answer", null));
 
         String body = objectMapper.writeValueAsString(Map.of(
@@ -112,14 +112,14 @@ class IdorClosureIntegrationTest {
                 .content(body))
             .andExpect(status().isOk());
 
-        verify(assistantService).ask(eq("what is my claim status?"), eq(user.groupId()), eq(user.id()), any());
+        verify(assistantService).ask(eq("what is my claim status?"), eq(user.groupId()), eq(user.id()), any(), any());
     }
 
     @Test
     @Transactional
     void qaAsk_authenticated_derivesGroupIdFromPrincipal_ignoringSpoofedBodyFields() throws Exception {
         LoggedInUser user = registerAndLogin("idor_qa_user", 6);
-        when(qaService.askQuestion(anyString(), anyLong()))
+        when(qaService.askQuestion(anyString(), anyLong(), any()))
             .thenReturn(new QAResponse(true, "", Collections.emptyList(), "answer"));
 
         String body = objectMapper.writeValueAsString(Map.of(
@@ -133,15 +133,15 @@ class IdorClosureIntegrationTest {
                 .content(body))
             .andExpect(status().isOk());
 
-        verify(qaService).askQuestion(eq("what is covered?"), eq(user.groupId()));
+        verify(qaService).askQuestion(eq("what is covered?"), eq(user.groupId()), any());
     }
 
     @Test
     @Transactional
     void claimsQuery_authenticated_derivesIdsFromPrincipal_ignoringSpoofedBodyFields() throws Exception {
         LoggedInUser user = registerAndLogin("idor_claims_user", 7);
-        when(claimsAgentOrchestratorService.query(anyString(), anyLong(), anyLong()))
-            .thenReturn(new AssistantQueryResponse(true, "", "answer"));
+        when(claimsAgentOrchestratorService.query(anyString(), anyLong(), anyLong(), any()))
+            .thenReturn(new AssistantQueryResponse(true, "", Collections.emptyList(), "answer"));
 
         String body = objectMapper.writeValueAsString(Map.of(
             "query", "status of my claim?",
@@ -155,7 +155,7 @@ class IdorClosureIntegrationTest {
                 .content(body))
             .andExpect(status().isOk());
 
-        verify(claimsAgentOrchestratorService).query(eq("status of my claim?"), eq(user.groupId()), eq(user.id()));
+        verify(claimsAgentOrchestratorService).query(eq("status of my claim?"), eq(user.groupId()), eq(user.id()), any());
     }
 
     @Test
@@ -163,7 +163,7 @@ class IdorClosureIntegrationTest {
     void crossTenantCallers_eachOperateOnlyOnTheirOwnGroupId() throws Exception {
         LoggedInUser groupOneUser = registerAndLogin("idor_tenant_group1", 1);
         LoggedInUser groupTwoUser = registerAndLogin("idor_tenant_group2", 2);
-        when(qaService.askQuestion(anyString(), anyLong()))
+        when(qaService.askQuestion(anyString(), anyLong(), any()))
             .thenReturn(new QAResponse(true, "", Collections.emptyList(), "answer"));
 
         String body = objectMapper.writeValueAsString(Map.of("query", "covered?"));
@@ -179,8 +179,8 @@ class IdorClosureIntegrationTest {
                 .content(body))
             .andExpect(status().isOk());
 
-        verify(qaService).askQuestion("covered?", groupOneUser.groupId());
-        verify(qaService).askQuestion("covered?", groupTwoUser.groupId());
+        verify(qaService).askQuestion("covered?", groupOneUser.groupId(), null);
+        verify(qaService).askQuestion("covered?", groupTwoUser.groupId(), null);
     }
 
     @Test

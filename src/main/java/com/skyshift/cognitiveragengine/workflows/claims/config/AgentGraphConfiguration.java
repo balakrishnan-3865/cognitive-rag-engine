@@ -45,10 +45,12 @@ public class AgentGraphConfiguration {
                 .addStrategy(WorkflowStateKeys.ORIGINAL_QUERY, KeyStrategy.REPLACE)
                 .addStrategy(WorkflowStateKeys.GROUP_ID, KeyStrategy.REPLACE)
                 .addStrategy(WorkflowStateKeys.USER_ID, KeyStrategy.REPLACE)
+                .addStrategy(WorkflowStateKeys.DOCUMENT_ID, KeyStrategy.REPLACE)
                 .addStrategy(WorkflowStateKeys.ROUTING_INTENT, KeyStrategy.REPLACE)
                 .addStrategy(WorkflowStateKeys.FINAL_ANSWER, KeyStrategy.REPLACE)
                 .addStrategy(WorkflowStateKeys.ANSWERED, KeyStrategy.REPLACE)
                 .addStrategy(WorkflowStateKeys.FAILURE_REASON, KeyStrategy.REPLACE)
+                .addStrategy(WorkflowStateKeys.SOURCES, KeyStrategy.REPLACE)
                 .build();
 
         IntentCheckNode intentCheckNode = new IntentCheckNode(intentClassifier);

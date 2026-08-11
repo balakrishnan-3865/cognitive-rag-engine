@@ -4,6 +4,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.skyshift.cognitiveragengine.assistant.agent.AssistantReactAgentFactory;
+import com.skyshift.cognitiveragengine.common.converter.DocumentToSourceChunkConverter;
 import com.skyshift.cognitiveragengine.common.exception.MalformedToolCallException;
 import com.skyshift.cognitiveragengine.common.exception.RecursionLimitExceededException;
 import com.skyshift.cognitiveragengine.common.exception.ToolExecutionTimeoutException;
@@ -49,17 +50,19 @@ public class UnifiedReactAgentNode implements NodeAction {
         String originalQuery = workflowState.originalQuery();
         Long groupId = workflowState.groupId();
         Long userId = workflowState.userId();
+        Long documentId = workflowState.documentId();
 
         List<Document> retrievedDocuments = new ArrayList<>();
         Map<String, Object> result = new HashMap<>();
 
         try {
-            ReactAgent agent = assistantReactAgentFactory.createAgent(groupId, userId, retrievedDocuments);
+            ReactAgent agent = assistantReactAgentFactory.createAgent(groupId, userId, documentId, retrievedDocuments);
             List<Message> messages = List.of(new UserMessage(originalQuery));
             AssistantMessage response = assistantReactAgentFactory.callWithErrorHandling(agent, messages);
 
             result.put(WorkflowStateKeys.FINAL_ANSWER, response.getText());
             result.put(WorkflowStateKeys.ANSWERED, true);
+            result.put(WorkflowStateKeys.SOURCES, DocumentToSourceChunkConverter.convertAll(retrievedDocuments));
             log.info("unified_react_agent answered successfully for groupId={}", groupId);
         } catch (MalformedToolCallException | RecursionLimitExceededException
                 | ToolExecutionTimeoutException | UncategorizedAgentException e) {

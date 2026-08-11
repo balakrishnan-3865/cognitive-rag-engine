@@ -28,7 +28,7 @@ public class AssistantController {
         @Valid @RequestBody AssistantRequest request,
         @AuthenticationPrincipal AuthenticatedUser principal
     ) {
-        log.info("Received assistant request: groupId={}", principal.getGroupId());
-        return assistantService.ask(request.message(), principal.getGroupId(), principal.getId(), request.conversationId());
+        log.info("Received assistant request: groupId={}, documentId={}", principal.getGroupId(), request.documentId());
+        return assistantService.ask(request.message(), principal.getGroupId(), principal.getId(), request.conversationId(), request.documentId());
     }
 }

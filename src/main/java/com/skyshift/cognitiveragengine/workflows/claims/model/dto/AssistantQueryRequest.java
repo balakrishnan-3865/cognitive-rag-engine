@@ -4,5 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public record AssistantQueryRequest(
         @NotBlank(message = "Query cannot be blank")
-        String query
+        String query,
+
+        Long documentId
 ) {}

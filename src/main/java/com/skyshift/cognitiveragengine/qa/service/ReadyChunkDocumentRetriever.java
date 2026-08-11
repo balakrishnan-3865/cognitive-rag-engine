@@ -46,8 +46,12 @@ public class ReadyChunkDocumentRetriever implements DocumentRetriever {
     }
 
     public DocumentBundle retrieveDocuments(Long groupId, String question) {
+        return retrieveDocuments(groupId, null, question);
+    }
+
+    public DocumentBundle retrieveDocuments(Long groupId, Long documentId, String question) {
         int topK = qaProperties.getTopK();
-        return hybridChunkRetrievalService.retrieveRelevantChunks(question, groupId, topK);
+        return hybridChunkRetrievalService.retrieveRelevantChunks(question, groupId, documentId, topK);
     }
 
     private Query requireQuery(Query query) {

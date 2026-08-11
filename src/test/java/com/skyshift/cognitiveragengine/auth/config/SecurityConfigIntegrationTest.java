@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -94,7 +95,7 @@ class SecurityConfigIntegrationTest {
     @Test
     @Transactional
     void protectedEndpoint_validToken_returns200AndReachesController() throws Exception {
-        when(qaService.askQuestion(anyString(), anyLong()))
+        when(qaService.askQuestion(anyString(), anyLong(), any()))
             .thenReturn(new QAResponse(true, "", Collections.emptyList(), "the answer"));
         String accessToken = obtainAccessToken("sec_cfg_valid");
 
@@ -155,7 +156,7 @@ class SecurityConfigIntegrationTest {
     @Test
     @Transactional
     void actualRequest_allowedOrigin_carriesAllowOriginHeaderAndReachesController() throws Exception {
-        when(qaService.askQuestion(anyString(), anyLong()))
+        when(qaService.askQuestion(anyString(), anyLong(), any()))
             .thenReturn(new QAResponse(true, "", Collections.emptyList(), "the answer"));
         String accessToken = obtainAccessToken("sec_cfg_cors_valid");
 

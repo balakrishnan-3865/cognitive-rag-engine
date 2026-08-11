@@ -1,6 +1,7 @@
 package com.skyshift.cognitiveragengine.qa.service;
 
 import com.skyshift.cognitiveragengine.common.converter.DocumentToSourceChunkConverter;
+import com.skyshift.cognitiveragengine.common.exception.BusinessException;
 import com.skyshift.cognitiveragengine.qa.config.QaProperties;
 import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.qa.model.KnowledgeSourceResponse;
@@ -47,12 +48,12 @@ public class QaService {
         this.qaProperties = qaProperties;
     }
 
-    public QAResponse askQuestion(String query, Long groupId) {
-        log.info("Processing QA question: query='{}', groupId={}, config=[maxTokens={}, temperature={}, timeout={}ms]",
-                query, groupId, qaProperties.getMaxTokens(), qaProperties.getTemperature(), qaProperties.getChatTimeoutMs());
+    public QAResponse askQuestion(String query, Long groupId, Long documentId) {
+        log.info("Processing QA question: query='{}', groupId={}, documentId={}, config=[maxTokens={}, temperature={}, timeout={}ms]",
+                query, groupId, documentId, qaProperties.getMaxTokens(), qaProperties.getTemperature(), qaProperties.getChatTimeoutMs());
 
         try {
-            DocumentBundle documentBundle = readyChunkDocumentRetriever.retrieveDocuments(groupId, query);
+            DocumentBundle documentBundle = readyChunkDocumentRetriever.retrieveDocuments(groupId, documentId, query);
 
             if (documentBundle.documents().isEmpty()) {
                 log.warn("No relevant context found for question: groupId={}", groupId);
@@ -71,6 +72,11 @@ public class QaService {
             List<SourceChunk> sourceChunks = DocumentToSourceChunkConverter.convertAll(documentBundle.documents());
             return new QAResponse(true, "", sourceChunks, response.answer());
 
+        } catch (BusinessException e) {
+            // Invalid/inaccessible documentId (or other bad input) - a clear rejection, not a
+            // retrieval infra failure, so let it propagate to GlobalExceptionHandler as a 400
+            // instead of being folded into a soft "answered: false" 200 below.
+            throw e;
         } catch (Exception e) {
             log.error("QA processing failed: groupId={}, error={}", groupId, e.getMessage(), e);
             return new QAResponse(

@@ -9,10 +9,12 @@ public final class WorkflowStateKeys {
     public static final String ORIGINAL_QUERY = "originalQuery";
     public static final String GROUP_ID = "groupId";
     public static final String USER_ID = "userId";
+    public static final String DOCUMENT_ID = "documentId";
     public static final String ROUTING_INTENT = "routingIntent";
     public static final String FINAL_ANSWER = "finalAnswer";
     public static final String ANSWERED = "answered";
     public static final String FAILURE_REASON = "failureReason";
+    public static final String SOURCES = "sources";
 
     private WorkflowStateKeys() {
     }

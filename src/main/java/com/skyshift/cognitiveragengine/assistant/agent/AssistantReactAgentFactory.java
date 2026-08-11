@@ -58,10 +58,13 @@ public class AssistantReactAgentFactory {
         this.observationRegistry = observationRegistry;
     }
 
-    public ReactAgent createAgent(Long groupId, Long userId, List<Document> retrievedDocuments) {
+    public ReactAgent createAgent(Long groupId, Long userId, Long documentId, List<Document> retrievedDocuments) {
         Map<String, Object> context = new HashMap<>();
         context.put(ContextKeys.GROUP_ID_CONTEXT_KEY, groupId);
         context.put(ContextKeys.USER_ID_CONTEXT_KEY, userId);
+        if (documentId != null) {
+            context.put(ContextKeys.DOCUMENT_ID_CONTEXT_KEY, documentId);
+        }
         context.put(ContextKeys.RESULT_HOLDER_CONTEXT_KEY, retrievedDocuments);
 
         return ReactAgent.builder()

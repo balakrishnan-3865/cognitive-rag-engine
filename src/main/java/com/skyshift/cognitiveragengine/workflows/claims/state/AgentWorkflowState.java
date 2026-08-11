@@ -2,6 +2,9 @@ package com.skyshift.cognitiveragengine.workflows.claims.state;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.skyshift.cognitiveragengine.classifier.model.enums.RoutingIntent;
+import com.skyshift.cognitiveragengine.qa.model.SourceChunk;
+
+import java.util.List;
 
 /**
  * Thin, per-request read layer over the graph's {@link OverAllState}. {@code OverAllState} is
@@ -30,6 +33,10 @@ public class AgentWorkflowState {
         return delegate.value(WorkflowStateKeys.USER_ID, (Long) null);
     }
 
+    public Long documentId() {
+        return delegate.value(WorkflowStateKeys.DOCUMENT_ID, (Long) null);
+    }
+
     public RoutingIntent routingIntent() {
         return delegate.value(WorkflowStateKeys.ROUTING_INTENT, (RoutingIntent) null);
     }
@@ -44,5 +51,9 @@ public class AgentWorkflowState {
 
     public String failureReason() {
         return delegate.value(WorkflowStateKeys.FAILURE_REASON, (String) null);
+    }
+
+    public List<SourceChunk> sources() {
+        return delegate.value(WorkflowStateKeys.SOURCES, (List<SourceChunk>) null);
     }
 }

@@ -8,5 +8,7 @@ public record AssistantRequest(
         String message,
 
         @Positive(message = "ConversationId must be positive")
-        Long conversationId
+        Long conversationId,
+
+        Long documentId
 ) {}

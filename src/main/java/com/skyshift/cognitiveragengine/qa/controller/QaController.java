@@ -28,7 +28,8 @@ public class QaController {
         @Valid @RequestBody QARequest request,
         @AuthenticationPrincipal AuthenticatedUser principal
     ) {
-        log.info("Received QA request: query='{}', groupId={}", request.query(), principal.getGroupId());
-        return qaService.askQuestion(request.query(), principal.getGroupId());
+        log.info("Received QA request: query='{}', groupId={}, documentId={}",
+                request.query(), principal.getGroupId(), request.documentId());
+        return qaService.askQuestion(request.query(), principal.getGroupId(), request.documentId());
     }
 }

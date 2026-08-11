@@ -67,15 +67,17 @@ public class KnowledgeBaseTool {
     private String doSearch(Observation observation, String query, ToolContext toolContext) {
         Long groupId = ToolContextHelper.getMetadata(toolContext, ContextKeys.GROUP_ID_CONTEXT_KEY, Long.class)
                 .orElseThrow(() -> new IllegalStateException("groupId missing from tool context"));
+        Long documentId = ToolContextHelper.getMetadata(toolContext, ContextKeys.DOCUMENT_ID_CONTEXT_KEY, Long.class)
+                .orElse(null);
 
-        log.debug("Assistant tool searching knowledge base: query='{}', groupId={}", query, groupId);
+        log.debug("Assistant tool searching knowledge base: query='{}', groupId={}, documentId={}", query, groupId, documentId);
 
         if (observabilityProperties.isCaptureContent()) {
             observation.highCardinalityKeyValue("spring.ai.tool.call.arguments", query);
         }
 
         List<Document> documents = hybridChunkRetrievalService
-                .retrieveRelevantChunks(query, groupId, assistantProperties.getTopKDefault())
+                .retrieveRelevantChunks(query, groupId, documentId, assistantProperties.getTopKDefault())
                 .documents();
 
         recordRetrievedDocuments(toolContext, documents);
