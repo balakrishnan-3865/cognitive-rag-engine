@@ -177,6 +177,26 @@ app:
     recovery:
       interval-seconds: 3600
 
+# Resilience4j: Circuit Breaker (Test) - small sliding windows and short open-state wait so
+# breaker tests can force CLOSED -> OPEN -> HALF_OPEN -> CLOSED transitions quickly and deterministically.
+resilience4j:
+  circuitbreaker:
+    instances:
+      embedding-batch:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 4
+        minimumNumberOfCalls: 4
+        failureRateThreshold: 50
+        waitDurationInOpenState: 500
+        permittedNumberOfCallsInHalfOpenState: 2
+      elasticsearch-batch:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 4
+        minimumNumberOfCalls: 4
+        failureRateThreshold: 50
+        waitDurationInOpenState: 500
+        permittedNumberOfCallsInHalfOpenState: 2
+
 # Logging Configuration (Test)
 logging:
   level:

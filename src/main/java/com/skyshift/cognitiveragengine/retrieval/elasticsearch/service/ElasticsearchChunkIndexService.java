@@ -10,8 +10,11 @@ import com.skyshift.cognitiveragengine.common.exception.BusinessException;
 import com.skyshift.cognitiveragengine.ingestion.exception.NoChunksFoundException;
 import com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity;
 import com.skyshift.cognitiveragengine.qa.config.RetrievalProperties;
+import com.skyshift.cognitiveragengine.retrieval.elasticsearch.exception.ElasticsearchCircuitBreakerOpenException;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.KeywordHit;
 import com.skyshift.cognitiveragengine.retrieval.elasticsearch.model.SparseChunkDto;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -158,10 +161,14 @@ public class ElasticsearchChunkIndexService {
      * If batch fails after max retries, fallback throws IOException to trigger compensating rollback.
      *
      * Retry: 5 max attempts with exponential backoff (500ms initial, 2x multiplier)
-     * Configuration: application.yaml resilience4j.retry.instances.elasticsearch-batch
+     * Circuit Breaker: opens once recent batches fail past the configured threshold, so a
+     * struggling Elasticsearch isn't hammered by every subsequent batch's full retry cycle.
+     * Configuration: application.yaml resilience4j.retry.instances.elasticsearch-batch,
+     * resilience4j.circuitbreaker.instances.elasticsearch-batch
      * Retries on: IOException, ResponseException (network/temporary errors)
      */
-    @Retry(name = "elasticsearch-batch", fallbackMethod = "handleBulkIndexBatchFailure")
+    @CircuitBreaker(name = "elasticsearch-batch", fallbackMethod = "handleBulkIndexBatchFailure")
+    @Retry(name = "elasticsearch-batch")
     public void processBulkIndexBatch(String fileName, List<DocumentChunkEntity> batch, int batchNum, int totalBatches) throws IOException {
         List<BulkOperation> operations = new ArrayList<>();
 
@@ -194,12 +201,25 @@ public class ElasticsearchChunkIndexService {
     }
 
     /**
-     * Fallback: Called when @Retry exhausts max attempts for a batch.
-     * Throws IOException to trigger compensating rollback at indexChunks level.
+     * Fallback: Called when either @CircuitBreaker rejects the call (breaker OPEN) or @Retry
+     * exhausts max attempts for a batch. Both trigger a compensating rollback at indexChunks
+     * level, but are reported as distinct exceptions since they mean different things: a breaker
+     * rejection means Elasticsearch is presumed unhealthy and this batch was never attempted,
+     * while a retry-exhaustion means this specific batch was attempted and failed every time.
      *
      * Method signature must match processBulkIndexBatch() plus Throwable parameter.
      */
     private void handleBulkIndexBatchFailure(String fileName, List<DocumentChunkEntity> batch, int batchNum, int totalBatches, Throwable t) throws IOException {
+        if (t instanceof CallNotPermittedException) {
+            log.error("Bulk indexing SKIPPED: circuit breaker OPEN, batch {}/{} in file {} with {} chunks. " +
+                     "Batch will be rolled back at document level.",
+                     batchNum, totalBatches, fileName, batch.size());
+
+            throw new ElasticsearchCircuitBreakerOpenException(
+                "Bulk indexing skipped for batch " + batchNum + "/" + totalBatches +
+                " in file: " + fileName + ": circuit breaker open: " + t.getMessage(), t);
+        }
+
         log.error("Bulk indexing PERMANENTLY FAILED after max retry attempts: batch {}/{} in file {} with {} chunks. " +
                  "Batch will be rolled back at document level.",
                  batchNum, totalBatches, fileName, batch.size());

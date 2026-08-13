@@ -203,6 +203,11 @@ logging:
 # Resilience4j: Automatic retry with exponential backoff for transient failures
 resilience4j:
   retry:
+    # Explicit Spring AOP aspect order: lower value = outer advice. CircuitBreaker must wrap
+    # Retry (not the reverse, which is Resilience4j's Spring Boot default) so that a batch's
+    # full retry cycle counts as ONE breaker outcome, and a breaker-OPEN call skips Retry (and
+    # the downstream call) entirely instead of being evaluated per individual retry attempt.
+    retryAspectOrder: 2
     instances:
       embedding-batch:
         maxAttempts: 3
@@ -229,6 +234,29 @@ resilience4j:
         retryExceptions:
           - java.io.IOException
           - co.elastic.clients.transport.rest5_client.low_level.ResponseException
+
+  # Resilience4j: Circuit Breaker - stops calling a dependency once its recent failure rate
+  # crosses the threshold, so a struggling pgVector/Elasticsearch isn't hammered by every
+  # batch's full retry cycle. Wraps Retry (Retry's aspect order runs inside CircuitBreaker's),
+  # so one breaker outcome = one fully-retried batch call, not one raw attempt.
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1
+    instances:
+      embedding-batch:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: ${CIRCUITBREAKER_EMBEDDING_SLIDING_WINDOW_SIZE:10}
+        minimumNumberOfCalls: ${CIRCUITBREAKER_EMBEDDING_MINIMUM_CALLS:5}
+        failureRateThreshold: ${CIRCUITBREAKER_EMBEDDING_FAILURE_RATE_THRESHOLD:50}
+        waitDurationInOpenState: ${CIRCUITBREAKER_EMBEDDING_WAIT_DURATION_OPEN_STATE_MS:10000}
+        permittedNumberOfCallsInHalfOpenState: ${CIRCUITBREAKER_EMBEDDING_HALF_OPEN_CALLS:3}
+
+      elasticsearch-batch:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: ${CIRCUITBREAKER_ELASTICSEARCH_SLIDING_WINDOW_SIZE:10}
+        minimumNumberOfCalls: ${CIRCUITBREAKER_ELASTICSEARCH_MINIMUM_CALLS:5}
+        failureRateThreshold: ${CIRCUITBREAKER_ELASTICSEARCH_FAILURE_RATE_THRESHOLD:50}
+        waitDurationInOpenState: ${CIRCUITBREAKER_ELASTICSEARCH_WAIT_DURATION_OPEN_STATE_MS:15000}
+        permittedNumberOfCallsInHalfOpenState: ${CIRCUITBREAKER_ELASTICSEARCH_HALF_OPEN_CALLS:3}
 
 # Classifier Configuration - Intent classification model
 classifier:
