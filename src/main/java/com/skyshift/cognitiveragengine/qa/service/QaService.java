@@ -27,7 +27,6 @@ public class QaService {
     private final ReadyChunkDocumentRetriever readyChunkDocumentRetriever;
     private final ChatClient chatClient;
     private final PromptTemplate qaQueryPromptTemplate;
-    private final KnowledgeSourceResponseConverter responseConverter;
     private final QaProperties qaProperties;
     // Wrapped so the calling thread's trace/observation context (Micrometer + OTel) is
     // snapshotted and restored on the virtual thread; a raw executor loses it silently,
@@ -39,12 +38,10 @@ public class QaService {
             ReadyChunkDocumentRetriever readyChunkDocumentRetriever,
             ChatClient chatClient,
             @Qualifier("qaQueryPromptTemplate") PromptTemplate qaQueryPromptTemplate,
-            KnowledgeSourceResponseConverter responseConverter,
             QaProperties qaProperties) {
         this.readyChunkDocumentRetriever = readyChunkDocumentRetriever;
         this.chatClient = chatClient;
         this.qaQueryPromptTemplate = qaQueryPromptTemplate;
-        this.responseConverter = responseConverter;
         this.qaProperties = qaProperties;
     }
 
@@ -89,20 +86,18 @@ public class QaService {
     }
 
     private KnowledgeSourceResponse invokeKnowledgeSourceResponse(
-            String userPrompt, Long groupId, List<Document> documents) throws Exception {
+            String userPrompt, Long groupId, List<Document> documents) {
         try {
-            String rawResponse = CompletableFuture.supplyAsync(() ->
+            return CompletableFuture.supplyAsync(() ->
                 chatClient.prompt(userPrompt)
                     .advisors(advisor -> advisor
                         .param("groupId", groupId)
                         .param(ReadyChunkDocumentRetriever.PREFETCHED_DOCUMENTS_CONTEXT_KEY, documents)
                     )
                     .call()
-                    .content(),
+                    .entity(KnowledgeSourceResponse.class),
                 executor
             ).get(qaProperties.getChatTimeoutMs(), TimeUnit.MILLISECONDS);
-
-            return responseConverter.convertRawResponse(rawResponse);
         } catch (TimeoutException e) {
             log.error("LLM generation timed out after {}ms for groupId: {}", qaProperties.getChatTimeoutMs(), groupId, e);
             throw new RuntimeException("Request timed out", e);
