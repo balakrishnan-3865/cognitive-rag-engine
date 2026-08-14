@@ -2,6 +2,10 @@ package com.skyshift.cognitiveragengine.assistant.agent;
 
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
+import com.alibaba.cloud.ai.graph.agent.hook.modelcalllimit.ModelCallLimitExceededException;
+import com.alibaba.cloud.ai.graph.agent.hook.modelcalllimit.ModelCallLimitHook;
+import com.alibaba.cloud.ai.graph.agent.hook.toolcalllimit.ToolCallLimitExceededException;
+import com.alibaba.cloud.ai.graph.agent.hook.toolcalllimit.ToolCallLimitHook;
 import com.skyshift.cognitiveragengine.assistant.config.AssistantProperties;
 import com.skyshift.cognitiveragengine.common.exception.MalformedToolCallException;
 import com.skyshift.cognitiveragengine.common.exception.RecursionLimitExceededException;
@@ -17,10 +21,12 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +47,7 @@ public class AssistantReactAgentFactory {
     private final AssistantProperties assistantProperties;
     private final PromptTemplate assistantReactInstructionTemplate;
     private final ObservationRegistry observationRegistry;
+    private final List<String> registeredToolNames;
 
     public AssistantReactAgentFactory(
             ChatModel chatModel,
@@ -56,6 +63,13 @@ public class AssistantReactAgentFactory {
         this.assistantProperties = assistantProperties;
         this.assistantReactInstructionTemplate = assistantReactInstructionTemplate;
         this.observationRegistry = observationRegistry;
+        this.registeredToolNames = Arrays.stream(ToolCallbacks.from(knowledgeBaseTool, claimStatusTool))
+                .map(callback -> callback.getToolDefinition().name())
+                .toList();
+    }
+
+    public List<String> registeredToolNames() {
+        return registeredToolNames;
     }
 
     public ReactAgent createAgent(Long groupId, Long userId, Long documentId, List<Document> retrievedDocuments) {
@@ -73,8 +87,26 @@ public class AssistantReactAgentFactory {
                 .instruction(assistantReactInstructionTemplate.getTemplate())
                 .methodTools(knowledgeBaseTool, claimStatusTool)
                 .toolContext(context)
+                .hooks(new AwarenessHook(assistantProperties.getMaxModelCalls() - 2),
+                        ModelCallLimitHook.builder()
+                                .runLimit(assistantProperties.getMaxModelCalls())
+                                .exitBehavior(ModelCallLimitHook.ExitBehavior.ERROR)
+                                .build(),
+                        ToolCallLimitHook.builder()
+                                .toolName("searchKnowledgeBase")
+                                .runLimit(3)
+                                .exitBehavior(ToolCallLimitHook.ExitBehavior.ERROR)
+                                .build())
                 .compileConfig(CompileConfig.builder()
-                        .recursionLimit(assistantProperties.getMaxToolLoops())
+                        // Each round costs 7 graph steps: AwarenessHook only registers a
+                        // beforeModel node (@HookPositions restricts it to BEFORE_MODEL, so it
+                        // doesn't add an afterModel step), plus ModelCallLimitHook and
+                        // ToolCallLimitHook's beforeModel+afterModel pairs (2 each) - beforeModel
+                        // x3, model, afterModel x2, tool. This must clear 7 * maxModelCalls with
+                        // margin, or the structural recursion limit trips first and gets silently
+                        // swallowed by ReactAgent.call() (returns a truncated answer instead of
+                        // throwing) before any hook ever fires.
+                        .recursionLimit(assistantProperties.getMaxModelCalls() * 8 + 5)
                         .build())
                 .toolExecutionTimeout(Duration.ofMillis(assistantProperties.getToolTimeoutMs()))
                 .observationRegistry(observationRegistry)
@@ -93,6 +125,12 @@ public class AssistantReactAgentFactory {
         if (isToolNotFound(e) || isMalformedJson(e)) {
             return new MalformedToolCallException(e.getMessage(), e);
         }
+        if (e instanceof ModelCallLimitExceededException) {
+            return new RecursionLimitExceededException(e.getMessage());
+        }
+        if (e instanceof ToolCallLimitExceededException) {
+            return new RecursionLimitExceededException(e.getMessage());
+        }
         if (isRecursionLimitExceeded(e)) {
             return new RecursionLimitExceededException(e.getMessage());
         }
@@ -104,12 +142,7 @@ public class AssistantReactAgentFactory {
 
     private static boolean isToolNotFound(Exception e) {
         String message = e.getMessage();
-        if (message == null) return false;
-
-        return message.matches(".*[Tt]ool\\s+['\\\"]?\\w+['\\\"]?\\s+not\\s+found.*") ||
-               message.contains("Unknown tool") ||
-               message.contains("no tool registered") ||
-               message.contains("Tool '") && message.contains("' not found");
+        return message != null && message.contains("No ToolCallback found for tool name");
     }
 
     private static boolean isMalformedJson(Exception e) {

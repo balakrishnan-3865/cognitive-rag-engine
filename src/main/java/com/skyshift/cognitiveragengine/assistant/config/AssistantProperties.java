@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "assistant")
 public class AssistantProperties {
     private int topKDefault = 5;
-    private int maxToolLoops = 10;
+    private int maxModelCalls = 5;
     private long toolTimeoutMs = 30000;
     private int maxHistoryTurns = 10;
     private int summarizationTriggerMessageCount = 30;

@@ -153,7 +153,7 @@ public class AssistantService {
 
     private String buildRepairInstruction(MalformedToolCallException error) {
         String toolName = extractHallucinatedToolName(error);
-        List<String> validTools = List.of("searchKnowledgeBase");
+        List<String> validTools = assistantReactAgentFactory.registeredToolNames();
 
         return String.format(
                 "Your last tool call was invalid: '%s' does not exist. " +

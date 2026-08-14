@@ -138,7 +138,7 @@ retrieval:
 # Assistant Configuration - ReAct agent with RAG exposed as a tool
 assistant:
   top-k-default: ${ASSISTANT_TOP_K_DEFAULT}
-  max-tool-loops: ${ASSISTANT_MAX_TOOL_LOOPS}
+  max-model-calls: ${ASSISTANT_MAX_MODEL_CALLS}
   tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS}
   max-history-turns: ${ASSISTANT_MAX_HISTORY_TURNS}
   summarization-trigger-message-count: ${ASSISTANT_SUMMARIZATION_TRIGGER_MESSAGE_COUNT}
