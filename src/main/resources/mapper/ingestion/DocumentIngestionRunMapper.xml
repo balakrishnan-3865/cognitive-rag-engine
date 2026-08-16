@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skyshift.cognitiveragengine.ingestion.mapper.DocumentIngestionRunMapper">
+    <insert id="insert" parameterType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentIngestionRunEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO document_ingestion_runs (
+            document_id,
+            docling_task_id,
+            status
+        ) VALUES (
+            #{documentId},
+            #{doclingTaskId},
+            #{status}
+        )
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE document_ingestion_runs
+        SET status = #{status},
+            completed_at = CASE WHEN #{status} IN ('FAILED', 'CUTOVER_COMPLETE') THEN CURRENT_TIMESTAMP ELSE completed_at END
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM document_ingestion_runs
+        WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentIngestionRunEntity">
+        SELECT
+            id,
+            document_id,
+            docling_task_id,
+            status,
+            started_at,
+            completed_at
+        FROM document_ingestion_runs
+        WHERE id = #{id}
+    </select>
+</mapper>

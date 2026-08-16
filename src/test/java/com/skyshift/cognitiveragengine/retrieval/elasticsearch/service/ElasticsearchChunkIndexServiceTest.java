@@ -255,6 +255,25 @@ class ElasticsearchChunkIndexServiceTest {
     }
 
     @Test
+    @DisplayName("Phase 8: re-ingesting a document replaces its prior chunks, not duplicates them")
+    void testReingestion_replacesOldChunks_doesNotLeaveStaleDuplicates() throws IOException, InterruptedException {
+        Long docId = 300L;
+
+        List<DocumentChunkEntity> firstRun = createTestChunksWithOffset(3, TEST_GROUP_ID, docId, 300);
+        elasticsearchChunkIndexService.indexChunks(docId, TEST_FILE_NAME, firstRun);
+        Thread.sleep(1000);
+        assertEquals(3, elasticsearchChunkIndexService.countByDocumentId(docId),
+            "First ingestion should index exactly 3 chunks");
+
+        List<DocumentChunkEntity> secondRun = createTestChunksWithOffset(2, TEST_GROUP_ID, docId, 400);
+        elasticsearchChunkIndexService.indexChunks(docId, TEST_FILE_NAME, secondRun);
+        Thread.sleep(1000);
+
+        assertEquals(2, elasticsearchChunkIndexService.countByDocumentId(docId),
+            "Re-ingestion should result in exactly the new chunk count — old ones gone, not additive");
+    }
+
+    @Test
     @DisplayName("Should handle concurrent index initialization")
     void testConcurrentIndexInitialization() {
         assertDoesNotThrow(() -> {

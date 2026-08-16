@@ -163,8 +163,12 @@ public class VectorIngestionService {
                         chunk.getMetadataJson(),
                         Map.class);
 
+                // Null-valued fields are dropped rather than passed through — Spring AI's
+                // Document rejects any null metadata value outright, and Docling-produced
+                // chunks legitimately have null fields sometimes (e.g. sectionPath before the
+                // first header in a document).
                 jsonMetadata.forEach((key, value) -> {
-                    if (!metadata.containsKey(key)) {
+                    if (value != null && !metadata.containsKey(key)) {
                         metadata.put(key, value);
                     }
                 });

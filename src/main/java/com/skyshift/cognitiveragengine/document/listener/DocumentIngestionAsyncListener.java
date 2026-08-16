@@ -18,7 +18,7 @@ public class DocumentIngestionAsyncListener {
         this.parseAndChunkService = parseAndChunkService;
     }
 
-    @Async
+    @Async("ingestionVirtualExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onDocumentUploaded(DocumentUploadedEvent event) {
         log.info("Processing document ingestion: documentId={}, groupId={}",

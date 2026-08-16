@@ -19,6 +19,8 @@ public class DocumentChunkEntity {
     private String metadataJson;
     private Integer startPosition;
     private Integer endPosition;
+    private Long ingestionRunId;
+    private Boolean isCurrent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

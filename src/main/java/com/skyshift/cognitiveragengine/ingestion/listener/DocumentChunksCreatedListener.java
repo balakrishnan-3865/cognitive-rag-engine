@@ -35,7 +35,7 @@ public class DocumentChunksCreatedListener {
      *
      * Any retry or concurrent invocation will see final status and be rejected by WHERE clause in conditional update.
      */
-    @Async
+    @Async("ingestionVirtualExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onDocumentChunksCreated(DocumentChunksCreatedEvent event) {
         log.info("DocumentChunksCreatedEvent received after transaction commit: documentId={}, groupId={}",

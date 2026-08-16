@@ -82,6 +82,24 @@ services:
     networks:
       - cognitive-rag-network
 
+  # Docling sidecar - layout/table-aware PDF conversion service
+  # CPU variant: no GPU assumed for local demo use (Phase 0 decision — see
+  # docs/overview/DOCLING_STREAMING_INGESTION.md, Section 21). GPU/resource
+  # tuning explicitly deferred, flagged for later.
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    container_name: ${DOCLING_CONTAINER_NAME:-cognitive-rag-docling}
+    ports:
+      - "${DOCLING_PORT:-5001}:5001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - cognitive-rag-network
+
 volumes:
   postgres_data:
     driver: local

@@ -147,6 +147,16 @@
         WHERE id = #{documentId} AND status = #{fromStatus}
     </update>
 
+    <update id="claimForProcessing">
+        UPDATE documents
+        SET status = #{toStatus}, updated_at = NOW()
+        WHERE id = #{documentId}
+        AND status IN
+        <foreach collection="fromStatuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+    </update>
+
     <update id="flipCurrentVersion">
         UPDATE documents
         SET is_current_version = CASE WHEN id = #{toId} THEN true ELSE false END,

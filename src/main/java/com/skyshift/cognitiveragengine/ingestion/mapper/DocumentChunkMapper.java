@@ -19,6 +19,14 @@ public interface DocumentChunkMapper {
         @Param("documentId") Long documentId,
         @Param("groupId") Long groupId);
 
+    int deleteByIngestionRunId(@Param("ingestionRunId") Long ingestionRunId);
+
+    int retireCurrentChunks(
+        @Param("documentId") Long documentId,
+        @Param("groupId") Long groupId);
+
+    int promoteRunChunks(@Param("ingestionRunId") Long ingestionRunId);
+
     List<DocumentChunkEntity> selectByDocumentId(Long documentId);
 
     List<DocumentChunkEntity> selectByDocumentIdAndGroupId(

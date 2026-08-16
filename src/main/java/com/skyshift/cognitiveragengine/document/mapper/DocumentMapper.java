@@ -28,6 +28,11 @@ public interface DocumentMapper {
         @Param("fromStatus") String fromStatus,
         @Param("toStatus") String toStatus);
 
+    int claimForProcessing(
+        @Param("documentId") Long documentId,
+        @Param("fromStatuses") List<String> fromStatuses,
+        @Param("toStatus") String toStatus);
+
     int flipCurrentVersion(@Param("fromId") Long fromId, @Param("toId") Long toId);
 
     List<Long> findCurrentReadyDocumentIds(@Param("groupId") Long groupId);

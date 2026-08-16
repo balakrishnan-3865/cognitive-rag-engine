@@ -301,6 +301,29 @@ class VectorIngestionServiceTest {
         assertEquals("customValue", metadata.get("customField"), "New field should be added");
     }
 
+    @Test
+    @DisplayName("Phase 9: null-valued JSON metadata fields (e.g. Docling's sectionPath before any "
+        + "header) must not reach the vector store — some backends reject null metadata values")
+    void testMetadataMerge_dropsNullValuedFields() throws Exception {
+        Map<String, Object> jsonMetadata = new LinkedHashMap<>();
+        jsonMetadata.put("sectionPath", null);
+        jsonMetadata.put("pageStart", 4);
+        jsonMetadata.put("itemType", "text");
+
+        DocumentChunkEntity chunk = createSampleChunk(1L, 1L, "Text");
+        chunk.setMetadataJson(objectMapper.writeValueAsString(jsonMetadata));
+
+        service.embedAndStoreDocumentChunks(1L, List.of(chunk));
+
+        ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
+        verify(vectorStore).add(captor.capture());
+
+        Map<String, Object> metadata = captor.getValue().get(0).getMetadata();
+        assertFalse(metadata.containsKey("sectionPath"), "Null-valued field should be dropped, not passed through as null");
+        assertEquals(4, metadata.get("pageStart"));
+        assertEquals("text", metadata.get("itemType"));
+    }
+
     // Helper method to create sample chunks
     private DocumentChunkEntity createSampleChunk(Long documentId, Long chunkNumber, String text) {
         return DocumentChunkEntity.builder()

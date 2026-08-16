@@ -122,6 +122,11 @@ public class ElasticsearchChunkIndexService {
                  documentId, fileName, chunks.size(), totalBatches);
 
         try {
+            // Delete any prior documents for this documentId before indexing (Phase 8) — mirrors
+            // VectorIngestionService's pgvector pattern, so a re-ingestion never leaves stale
+            // chunks from an earlier run sitting alongside the new set.
+            deleteChunksByDocumentId(documentId);
+
             // Process chunks in batches
             for (int i = 0; i < chunks.size(); i += batchSize) {
                 int end = Math.min(i + batchSize, chunks.size());

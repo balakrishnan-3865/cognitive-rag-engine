@@ -11,6 +11,8 @@
             metadata_json,
             start_position,
             end_position,
+            ingestion_run_id,
+            is_current,
             created_at,
             updated_at
         ) VALUES (
@@ -21,6 +23,8 @@
             cast(#{metadataJson} as jsonb),
             #{startPosition},
             #{endPosition},
+            #{ingestionRunId},
+            #{isCurrent},
             #{createdAt},
             #{updatedAt}
         )
@@ -35,6 +39,8 @@
             metadata_json,
             start_position,
             end_position,
+            ingestion_run_id,
+            is_current,
             created_at,
             updated_at
         ) VALUES
@@ -47,10 +53,13 @@
                 cast(#{chunk.metadataJson} as jsonb),
                 #{chunk.startPosition},
                 #{chunk.endPosition},
+                #{chunk.ingestionRunId},
+                #{chunk.isCurrent},
                 #{chunk.createdAt},
                 #{chunk.updatedAt}
             )
         </foreach>
+        ON CONFLICT (document_id, group_id, ingestion_run_id, chunk_number) DO NOTHING
     </insert>
 
     <insert id="batchInsertChunks" parameterType="list">
@@ -60,6 +69,8 @@
             chunk_number,
             chunk_text,
             metadata_json,
+            ingestion_run_id,
+            is_current,
             created_at,
             updated_at
         ) VALUES
@@ -70,10 +81,13 @@
                 #{chunk.chunkNumber},
                 #{chunk.chunkText},
                 cast(#{chunk.metadataJson} as jsonb),
+                #{chunk.ingestionRunId},
+                #{chunk.isCurrent},
                 #{chunk.createdAt},
                 #{chunk.updatedAt}
             )
         </foreach>
+        ON CONFLICT (document_id, group_id, ingestion_run_id, chunk_number) DO NOTHING
     </insert>
 
     <delete id="deleteByDocumentId" parameterType="long">
@@ -86,6 +100,25 @@
         WHERE document_id = #{documentId}
         AND group_id = #{groupId}
     </delete>
+
+    <delete id="deleteByIngestionRunId">
+        DELETE FROM document_chunks
+        WHERE ingestion_run_id = #{ingestionRunId}
+    </delete>
+
+    <update id="retireCurrentChunks">
+        UPDATE document_chunks
+        SET is_current = false, updated_at = NOW()
+        WHERE document_id = #{documentId}
+        AND group_id = #{groupId}
+        AND is_current = true
+    </update>
+
+    <update id="promoteRunChunks">
+        UPDATE document_chunks
+        SET is_current = true, updated_at = NOW()
+        WHERE ingestion_run_id = #{ingestionRunId}
+    </update>
 
     <select id="selectByDocumentId" resultType="com.skyshift.cognitiveragengine.ingestion.model.entity.DocumentChunkEntity">
         SELECT
@@ -113,11 +146,14 @@
             chunk_number,
             chunk_text,
             metadata_json,
+            ingestion_run_id,
+            is_current,
             created_at,
             updated_at
         FROM document_chunks
         WHERE document_id = #{documentId}
         AND group_id = #{groupId}
+        AND is_current = true
         ORDER BY chunk_number ASC, id ASC
     </select>
 

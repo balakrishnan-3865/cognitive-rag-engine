@@ -89,8 +89,6 @@ management:
 # Document Ingestion Configuration (Test)
 document:
   ingestion:
-    chunk-size-chars: 300
-    chunk-overlap-chars: 20
     embedding-batch-size: 10
     elasticsearch-batch-size: 50
     max-retries: 2
