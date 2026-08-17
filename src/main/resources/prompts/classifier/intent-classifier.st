@@ -19,16 +19,3 @@ You are an expert query classifier for an insurance customer service system. You
 
 ### Input Data
 CUSTOMER_QUERY: "{query}"
-
-### Output Format
-Respond ONLY with a valid JSON object. Do not include any markdown formatting (such as ```json), preambles, or postscript text.
-
-Use this exact structure:
-\{
-  "intent": "INSERT_INTENT_HERE",
-  "confidence": 0.0,
-  "reasoning": "INSERT_BRIEF_REASON_HERE"
-\}
-
-The value for "intent" must be exactly one of these strings: GENERAL_GREETING, AGENT_QUERY, OUT_OF_SCOPE.
-The value for "confidence" must be a float between 0.0 and 1.0.

@@ -3,7 +3,9 @@ package com.skyshift.cognitiveragengine.classifier.service;
 import com.skyshift.cognitiveragengine.classifier.model.dto.IntentClassificationResponse;
 import com.skyshift.cognitiveragengine.classifier.model.enums.RoutingIntent;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -75,11 +77,17 @@ public class IntentClassifier {
                     Map.of("query", query)
             );
 
-            // Call cost-optimized LLM model for classification with structured response
-            IntentClassificationResponse response = intentClassificationChatClient.prompt(prompt)
+            // Call cost-optimized LLM model for classification with structured response.
+            // ENABLE_NATIVE_STRUCTURED_OUTPUT makes the provider itself constrain decoding to the
+            // JSON schema (response_format: json_schema) rather than relying on an appended text
+            // instruction the model might ignore.
+            var responseEntity = intentClassificationChatClient.prompt(prompt)
+                    .advisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
                     .call()
-                    .entity(IntentClassificationResponse.class);
+                    .responseEntity(IntentClassificationResponse.class);
 
+            IntentClassificationResponse response = responseEntity.entity();
+            ChatResponse chatResponse = responseEntity.response();
             long elapsedMs = System.currentTimeMillis() - startTime;
 
             log.info("Query classified: intent={}, confidence={}, reasoning='{}', timeMs={}",
@@ -87,6 +95,13 @@ public class IntentClassifier {
                     String.format("%.2f", response.confidence()),
                     response.reasoning(),
                     elapsedMs);
+
+            if (chatResponse != null && chatResponse.getMetadata() != null
+                    && chatResponse.getMetadata().getUsage() != null) {
+                var usage = chatResponse.getMetadata().getUsage();
+                log.info("Classifier token usage: prompt={}, completion={}, total={}",
+                        usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
+            }
 
             return response;
 

@@ -84,7 +84,8 @@ management:
         otlp:
           endpoint: ${LANGFUSE_OTEL_ENDPOINT:http://localhost:4318/v1/traces}
           headers:
-            Authorization: ${LANGFUSE_OTEL_AUTH_HEADER:}
+            Authorization: ${LANGFUSE_OTEL_AUTH_HEADER}
+            x-langfuse-ingestion-version: "4"
 
 # Document Ingestion Configuration (Test)
 document:

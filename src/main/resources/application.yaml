@@ -16,19 +16,22 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 5
 
-  # Spring AI - Groq (via OpenAI-compatible API) Configuration (ChatModel) and Ollama (Embeddings)
+  # Spring AI Configuration - LLM and Embedding Models
   ai:
     model:
-      chat: openai
+      chat: google-genai
       embedding: ollama
     openai:
       api-key: ${GROQ_API_KEY}
       base-url: https://api.groq.com/openai
-      chat:
-        options:
-          model: llama-3.1-8b-instant
-          temperature: ${QA_TEMPERATURE}
-          top-p: 1.0
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          options:
+            model: gemini-3.6-flash
+            temperature: 0.1
+
     ollama:
       base-url: http://localhost:11434
       embedding:
@@ -107,7 +110,7 @@ storage:
 docling:
   base-url: ${DOCLING_BASE_URL:http://localhost:5001}
   max-chunk-size-chars: ${DOCLING_MAX_CHUNK_SIZE_CHARS:1200}
-  poll-interval-ms: ${DOCLING_POLL_INTERVAL_MS:2000}
+  poll-interval-ms: ${DOCLING_POLL_INTERVAL_MS:4000}
   poll-max-attempts: ${DOCLING_POLL_MAX_ATTEMPTS:150}
 
 # QA Configuration - LLM generation and final result limiting
@@ -116,6 +119,11 @@ qa:
   chat-timeout-ms: ${QA_CHAT_TIMEOUT_MS}
   temperature: ${QA_TEMPERATURE}
   max-tokens: ${QA_MAX_TOKENS}
+  # Dedicated QA answer model - independent of spring.ai.model.chat above (same rationale as
+  # classifier.model.* below), so native structured output (responseSchema) reliably engages.
+  model:
+    name: ${QA_MODEL_NAME:gemini-3.6-flash}
+    api-key: ${GEMINI_API_KEY}
 
 # Retrieval Configuration - Dense + Sparse RRF Fusion
 retrieval:

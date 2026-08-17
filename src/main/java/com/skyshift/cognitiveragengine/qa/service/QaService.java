@@ -7,6 +7,7 @@ import com.skyshift.cognitiveragengine.qa.model.DocumentBundle;
 import com.skyshift.cognitiveragengine.qa.model.KnowledgeSourceResponse;
 import com.skyshift.cognitiveragengine.qa.model.SourceChunk;
 import com.skyshift.cognitiveragengine.qa.model.dto.QAResponse;
+import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -88,14 +89,22 @@ public class QaService {
     private KnowledgeSourceResponse invokeKnowledgeSourceResponse(
             String userPrompt, Long groupId, List<Document> documents) {
         try {
-            return CompletableFuture.supplyAsync(() ->
-                chatClient.prompt(userPrompt)
-                    .advisors(advisor -> advisor
-                        .param("groupId", groupId)
-                        .param(ReadyChunkDocumentRetriever.PREFETCHED_DOCUMENTS_CONTEXT_KEY, documents)
-                    )
-                    .call()
-                    .entity(KnowledgeSourceResponse.class),
+            return CompletableFuture.supplyAsync(() -> {
+                    // ENABLE_NATIVE_STRUCTURED_OUTPUT makes Gemini itself constrain decoding to the
+                    // KnowledgeSourceResponse schema (responseSchema/responseMimeType) instead of
+                    // relying on an appended text instruction the model might ignore.
+                    var responseEntity = chatClient.prompt(userPrompt)
+                        .advisors(advisor -> advisor
+                            .param("groupId", groupId)
+                            .param(ReadyChunkDocumentRetriever.PREFETCHED_DOCUMENTS_CONTEXT_KEY, documents)
+                        )
+                        .advisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
+                        .call()
+                        .responseEntity(KnowledgeSourceResponse.class);
+
+                    logTokenUsage(responseEntity.response(), groupId);
+                    return responseEntity.entity();
+                },
                 executor
             ).get(qaProperties.getChatTimeoutMs(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
@@ -110,5 +119,15 @@ public class QaService {
     private String buildUserPrompt(String query) {
         Map<String, Object> variables = Map.of("query", query);
         return qaQueryPromptTemplate.render(variables);
+    }
+
+    private void logTokenUsage(org.springframework.ai.chat.model.ChatResponse chatResponse, Long groupId) {
+        if (chatResponse == null || chatResponse.getMetadata() == null
+                || chatResponse.getMetadata().getUsage() == null) {
+            return;
+        }
+        var usage = chatResponse.getMetadata().getUsage();
+        log.info("QA token usage: groupId={}, prompt={}, completion={}, total={}",
+                groupId, usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
     }
 }

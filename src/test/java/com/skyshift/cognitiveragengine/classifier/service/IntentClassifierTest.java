@@ -7,10 +7,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,9 +58,15 @@ class IntentClassifierTest {
     void ruleMiss_delegatesToLlmClassifier() {
         when(ruleBasedClassifier.matchRules(QUERY)).thenReturn(null);
         IntentClassificationResponse llmResult = new IntentClassificationResponse(RoutingIntent.AGENT_QUERY, 0.85, "policy question");
+        @SuppressWarnings("unchecked")
+        ResponseEntity<org.springframework.ai.chat.model.ChatResponse, IntentClassificationResponse> responseEntity =
+                mock(ResponseEntity.class);
+        when(responseEntity.entity()).thenReturn(llmResult);
+        when(responseEntity.response()).thenReturn(null);
         when(intentClassificationChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.advisors(any(java.util.function.Consumer.class))).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(callResponseSpec);
-        when(callResponseSpec.entity(IntentClassificationResponse.class)).thenReturn(llmResult);
+        when(callResponseSpec.responseEntity(IntentClassificationResponse.class)).thenReturn(responseEntity);
 
         IntentClassificationResponse response = classifier().classify(QUERY);
 
@@ -68,8 +77,10 @@ class IntentClassifierTest {
     void llmClassificationThrows_defaultsToAgentQuery() {
         when(ruleBasedClassifier.matchRules(QUERY)).thenReturn(null);
         when(intentClassificationChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.advisors(any(java.util.function.Consumer.class))).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(callResponseSpec);
-        when(callResponseSpec.entity(IntentClassificationResponse.class)).thenThrow(new RuntimeException("LLM unavailable"));
+        when(callResponseSpec.responseEntity(IntentClassificationResponse.class))
+                .thenThrow(new RuntimeException("LLM unavailable"));
 
         IntentClassificationResponse response = classifier().classify(QUERY);
 

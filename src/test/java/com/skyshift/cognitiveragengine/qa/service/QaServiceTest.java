@@ -12,11 +12,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ResponseEntity;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -106,7 +109,7 @@ class QaServiceTest {
         when(chatClient.prompt("rendered prompt")).thenReturn(requestSpec);
         when(requestSpec.advisors(any(java.util.function.Consumer.class))).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(callResponseSpec);
-        when(callResponseSpec.entity(KnowledgeSourceResponse.class))
+        when(callResponseSpec.responseEntity(KnowledgeSourceResponse.class))
                 .thenThrow(new RuntimeException("Could not parse the given text to the desired target type"));
 
         QAResponse response = qaService.askQuestion("query", 100L, null);
@@ -114,5 +117,30 @@ class QaServiceTest {
         assertFalse(response.answered());
         assertTrue(response.reasonMessage().contains("Failed to process question"));
         assertTrue(response.sources().isEmpty());
+    }
+
+    @Test
+    void askQuestion_chatClientEntityCallSucceeds_returnsAnsweredResponse() {
+        when(readyChunkDocumentRetriever.retrieveDocuments(eq(100L), isNull(), eq("query")))
+                .thenReturn(new DocumentBundle(List.of(new Document("chunk text"))));
+        when(qaQueryPromptTemplate.render(anyMap())).thenReturn("rendered prompt");
+
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        @SuppressWarnings("unchecked")
+        ResponseEntity<ChatResponse, KnowledgeSourceResponse> responseEntity = mock(ResponseEntity.class);
+        KnowledgeSourceResponse knowledgeSourceResponse = new KnowledgeSourceResponse(true, "the answer");
+        when(responseEntity.entity()).thenReturn(knowledgeSourceResponse);
+        when(responseEntity.response()).thenReturn(null);
+        when(chatClient.prompt("rendered prompt")).thenReturn(requestSpec);
+        when(requestSpec.advisors(any(java.util.function.Consumer.class))).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.responseEntity(KnowledgeSourceResponse.class)).thenReturn(responseEntity);
+
+        QAResponse response = qaService.askQuestion("query", 100L, null);
+
+        assertTrue(response.answered());
+        assertEquals("the answer", response.answer());
+        assertEquals(1, response.sources().size());
     }
 }

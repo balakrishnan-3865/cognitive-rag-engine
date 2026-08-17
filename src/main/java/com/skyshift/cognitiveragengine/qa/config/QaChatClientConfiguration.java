@@ -1,10 +1,14 @@
 package com.skyshift.cognitiveragengine.qa.config;
 
+import com.google.genai.Client;
 import com.skyshift.cognitiveragengine.qa.service.ReadyChunkDocumentRetriever;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.google.genai.GoogleGenAiChatModel;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,7 +18,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
 @Slf4j
-@EnableConfigurationProperties(QaProperties.class)
+@EnableConfigurationProperties({QaProperties.class, QaModelProperties.class})
 @Configuration
 public class QaChatClientConfiguration {
 
@@ -53,18 +57,46 @@ public class QaChatClientConfiguration {
                 .build();
     }
 
+    /**
+     * Dedicated QA answer model - independent of the app-wide {@code spring.ai.model.chat}
+     * default (same rationale as {@code IntentClassifierConfiguration}'s dedicated Groq bean):
+     * native structured output only engages when the request's {@code ChatOptions} is the
+     * provider-specific type ({@link GoogleGenAiChatOptions} implements
+     * {@code StructuredOutputChatOptions}), which the generic {@code ChatOptions} the previous
+     * default-builder-based bean used could never satisfy.
+     */
+    @Bean(name = "qaChatModel", defaultCandidate = false)
+    public ChatModel qaChatModel(QaModelProperties qaModelProperties, ObservationRegistry observationRegistry) {
+        log.info("Initializing QA chat model: {}", qaModelProperties.name());
+
+        Client genAiClient = Client.builder().apiKey(qaModelProperties.apiKey()).build();
+
+        GoogleGenAiChatOptions options = GoogleGenAiChatOptions.builder()
+                .model(qaModelProperties.name())
+                // Explicit, not left to the model's default - guards against Gemini's thinking
+                // output being merged into the answer text for a "thinking"-capable model.
+                .includeThoughts(false)
+                .build();
+
+        return GoogleGenAiChatModel.builder()
+                .genAiClient(genAiClient)
+                .defaultOptions(options)
+                .observationRegistry(observationRegistry)
+                .build();
+    }
+
     @Bean
     public ChatClient qaChatClient(
-            ChatClient.Builder chatClientBuilder,
+            @Qualifier("qaChatModel") ChatModel qaChatModel,
             @Qualifier("qaSystemPromptTemplate") PromptTemplate qaSystemPromptTemplate,
             RetrievalAugmentationAdvisor qaRetrievalAdvisor,
             QaProperties qaProperties
     ) {
-        return chatClientBuilder
+        return ChatClient.builder(qaChatModel)
                 .defaultSystem(qaSystemPromptTemplate.getTemplate())
                 .defaultAdvisors(qaRetrievalAdvisor)
-                .defaultOptions(ChatOptions.builder()
-                        .maxTokens(qaProperties.getMaxTokens())
+                .defaultOptions(GoogleGenAiChatOptions.builder()
+                        .maxOutputTokens(qaProperties.getMaxTokens())
                         .temperature(qaProperties.getTemperature())
                         .build())
                 .build();

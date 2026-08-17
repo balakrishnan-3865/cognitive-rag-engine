@@ -51,3 +51,7 @@ Desktop.ini
 # Local developer profile overrides
 **/src/main/resources/application-local.properties
 **/src/main/resources/application-local.yml
+
+/docs/
+
+.claude/*
