@@ -119,11 +119,6 @@ qa:
   chat-timeout-ms: ${QA_CHAT_TIMEOUT_MS}
   temperature: ${QA_TEMPERATURE}
   max-tokens: ${QA_MAX_TOKENS}
-  # Dedicated QA answer model - independent of spring.ai.model.chat above (same rationale as
-  # classifier.model.* below), so native structured output (responseSchema) reliably engages.
-  model:
-    name: ${QA_MODEL_NAME:gemini-3.6-flash}
-    api-key: ${GEMINI_API_KEY}
 
 # Retrieval Configuration - Dense + Sparse RRF Fusion
 retrieval:
@@ -155,6 +150,10 @@ assistant:
   tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS}
   max-history-turns: ${ASSISTANT_MAX_HISTORY_TURNS}
   summarization-trigger-message-count: ${ASSISTANT_SUMMARIZATION_TRIGGER_MESSAGE_COUNT}
+  # Dedicated Assistant/Claims ReAct agent model config (Groq primary/OpenRouter/Gemini
+  # fallback chain - see AssistantChatModelConfiguration)
+  temperature: ${ASSISTANT_TEMPERATURE:0.1}
+  max-tokens: ${ASSISTANT_MAX_TOKENS:2000}
 
 # Observability - raw prompt/completion capture on the chat-model span (gen_ai.prompt/gen_ai.completion),
 # for offline groundedness evaluation. Vendor-neutral OTel attributes only - no backend-specific config.
@@ -280,6 +279,29 @@ classifier:
     options:
       temperature: ${CLASSIFIER_TEMPERATURE}
       max-tokens: ${CLASSIFIER_MAX_TOKENS}
+
+# Groq Configuration - one shared primary (tier 1) model/key/endpoint for every use-case
+# that wraps its chat model in a FallbackChatModel (QA, Assistant/Claims). The classifier
+# keeps its own independently-tunable classifier.model.* instead of this.
+groq:
+  model:
+    name: ${GROQ_PRIMARY_MODEL_NAME:openai/gpt-oss-20b}
+    api-key: ${GROQ_API_KEY}
+    base-url: ${GROQ_BASE_URL:https://api.groq.com/openai}
+
+# OpenRouter Configuration - tier 2 (Nemotron) fallback, shared across use-cases that wrap
+# their chat model in a FallbackChatModel (classifier, QA, Assistant/Claims)
+openrouter:
+  name: ${OPENROUTER_MODEL_NAME:nvidia/nemotron-3.5-lightning:free}
+  api-key: ${OPENROUTER_API_KEY}
+  base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api}
+
+# Gemini Configuration - one shared model/key for every use-case's tier 3 (last-resort)
+# fallback (classifier, QA, ...)
+gemini:
+  model:
+    name: ${GEMINI_MODEL_NAME:gemini-3.6-flash}
+    api-key: ${GEMINI_API_KEY}
 
 # Workflow Configuration - Claims query agent orchestrator StateGraph
 workflow:

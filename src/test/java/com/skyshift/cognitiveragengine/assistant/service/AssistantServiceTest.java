@@ -109,6 +109,42 @@ class AssistantServiceTest {
     }
 
     @Test
+    void ask_maskedExceptionText_isTreatedAsFailure_notSuccess() {
+        // spring-ai-alibaba-agent-framework's AgentLlmNode.apply() catches every model-call
+        // exception and returns a normal-looking AssistantMessage with this exact literal text
+        // instead of rethrowing - callWithErrorHandling never sees an exception to catch.
+        when(documentService.resolveSearchableDocumentIds(GROUP_ID, null)).thenReturn(Collections.emptyList());
+        when(conversationService.getOrCreateConversation(null, GROUP_ID)).thenReturn(1L);
+        when(conversationService.loadHistory(1L, 10)).thenReturn(Collections.emptyList());
+        when(assistantReactAgentFactory.createAgent(eq(GROUP_ID), eq(USER_ID), eq(null), anyList()))
+                .thenReturn(reactAgent);
+        when(assistantReactAgentFactory.callWithErrorHandling(eq(reactAgent), anyList()))
+                .thenReturn(new AssistantMessage("Exception: 429 quota exceeded"));
+
+        AssistantResponse response = assistantService.ask("what's my claim status?", GROUP_ID, USER_ID, null, null);
+
+        assertFalse(response.answered());
+        verifyNoInteractions(conversationSummaryService);
+    }
+
+    @Test
+    void repairLoop_maskedExceptionText_isTreatedAsFailure_notSuccess() throws Exception {
+        when(documentService.resolveSearchableDocumentIds(GROUP_ID, null)).thenReturn(Collections.emptyList());
+        when(conversationService.getOrCreateConversation(null, GROUP_ID)).thenReturn(1L);
+        when(conversationService.loadHistory(1L, 10)).thenReturn(Collections.emptyList());
+        when(assistantReactAgentFactory.createAgent(eq(GROUP_ID), eq(USER_ID), eq(null), anyList()))
+                .thenReturn(reactAgent);
+        when(assistantReactAgentFactory.callWithErrorHandling(eq(reactAgent), anyList()))
+                .thenThrow(new MalformedToolCallException("No ToolCallback found for tool name: fakeTool", null));
+        when(assistantReactAgentFactory.registeredToolNames()).thenReturn(List.of("searchKnowledgeBase"));
+        when(reactAgent.call(anyList())).thenReturn(new AssistantMessage("Exception: 429 quota exceeded"));
+
+        AssistantResponse response = assistantService.ask("what's my claim status?", GROUP_ID, USER_ID, null, null);
+
+        assertFalse(response.answered());
+    }
+
+    @Test
     void ask_modelCallLimitExceeded_returnsGracefulDegradationResponse() {
         when(documentService.resolveSearchableDocumentIds(GROUP_ID, null)).thenReturn(Collections.emptyList());
         when(conversationService.getOrCreateConversation(null, GROUP_ID)).thenReturn(1L);

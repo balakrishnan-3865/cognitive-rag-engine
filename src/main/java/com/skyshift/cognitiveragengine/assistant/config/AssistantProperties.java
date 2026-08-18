@@ -15,4 +15,6 @@ public class AssistantProperties {
     private long toolTimeoutMs = 30000;
     private int maxHistoryTurns = 10;
     private int summarizationTriggerMessageCount = 30;
+    private double temperature = 0.1;
+    private int maxTokens = 2000;
 }

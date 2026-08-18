@@ -143,6 +143,23 @@ class UnifiedReactAgentNodeTest {
         assertFalse(result.containsKey(WorkflowStateKeys.SOURCES));
     }
 
+    @Test
+    void maskedExceptionText_isTreatedAsFailure_notSuccess() {
+        // spring-ai-alibaba-agent-framework's AgentLlmNode.apply() catches every model-call
+        // exception and returns a normal-looking AssistantMessage with this exact literal text
+        // instead of rethrowing - callWithErrorHandling never sees an exception to catch.
+        AssistantMessage maskedResponse = new AssistantMessage("Exception: 429 quota exceeded");
+        when(assistantReactAgentFactory.createAgent(eq(GROUP_ID), eq(USER_ID), isNull(), any())).thenReturn(reactAgent);
+        when(assistantReactAgentFactory.callWithErrorHandling(eq(reactAgent), anyList())).thenReturn(maskedResponse);
+
+        Map<String, Object> result = node.apply(stateWith(QUERY, GROUP_ID, USER_ID, null));
+
+        assertEquals(Boolean.FALSE, result.get(WorkflowStateKeys.ANSWERED));
+        assertEquals(maskedResponse.getText(), result.get(WorkflowStateKeys.FAILURE_REASON));
+        assertTrue(((String) result.get(WorkflowStateKeys.FINAL_ANSWER)).contains("wasn't able to process"));
+        assertFalse(result.containsKey(WorkflowStateKeys.SOURCES));
+    }
+
     private static Stream<RuntimeException> categorizedExceptions() {
         return Stream.of(
                 new MalformedToolCallException("Tool 'unknownTool' not found"),

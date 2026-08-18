@@ -50,7 +50,7 @@ public class AssistantReactAgentFactory {
     private final List<String> registeredToolNames;
 
     public AssistantReactAgentFactory(
-            ChatModel chatModel,
+            @Qualifier("assistantChatModel") ChatModel chatModel,
             KnowledgeBaseTool knowledgeBaseTool,
             ClaimStatusTool claimStatusTool,
             AssistantProperties assistantProperties,

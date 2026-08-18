@@ -38,6 +38,13 @@ public class UnifiedReactAgentNode implements NodeAction {
     private static final String FALLBACK_ANSWER =
             "I wasn't able to process this request. Please try rephrasing your question or try again shortly.";
 
+    // spring-ai-alibaba-agent-framework's AgentLlmNode.apply() catches every model-call
+    // exception (including a 429 that exhausts all 3 FallbackChatModel tiers) and returns a
+    // normal-looking AssistantMessage with this exact literal text, instead of rethrowing -
+    // see .claude/plans/multi-provider-fallback/00-discovery.md. Without this check, such a
+    // failure would be reported to the client as answered:true.
+    private static final String MASKED_EXCEPTION_PREFIX = "Exception: ";
+
     private final AssistantReactAgentFactory assistantReactAgentFactory;
 
     public UnifiedReactAgentNode(AssistantReactAgentFactory assistantReactAgentFactory) {
@@ -59,8 +66,17 @@ public class UnifiedReactAgentNode implements NodeAction {
             ReactAgent agent = assistantReactAgentFactory.createAgent(groupId, userId, documentId, retrievedDocuments);
             List<Message> messages = List.of(new UserMessage(originalQuery));
             AssistantMessage response = assistantReactAgentFactory.callWithErrorHandling(agent, messages);
+            String answerText = response.getText();
 
-            result.put(WorkflowStateKeys.FINAL_ANSWER, response.getText());
+            if (answerText != null && answerText.startsWith(MASKED_EXCEPTION_PREFIX)) {
+                log.warn("unified_react_agent received a masked model-call exception for groupId={}: {}", groupId, answerText);
+                result.put(WorkflowStateKeys.FINAL_ANSWER, FALLBACK_ANSWER);
+                result.put(WorkflowStateKeys.ANSWERED, false);
+                result.put(WorkflowStateKeys.FAILURE_REASON, answerText);
+                return result;
+            }
+
+            result.put(WorkflowStateKeys.FINAL_ANSWER, answerText);
             result.put(WorkflowStateKeys.ANSWERED, true);
             result.put(WorkflowStateKeys.SOURCES, DocumentToSourceChunkConverter.convertAll(retrievedDocuments));
             log.info("unified_react_agent answered successfully for groupId={}", groupId);

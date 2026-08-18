@@ -29,6 +29,13 @@ public class AssistantService {
 
     private static final String KNOWLEDGE_BASE_TOOL_NAME = "searchKnowledgeBase";
 
+    // spring-ai-alibaba-agent-framework's AgentLlmNode.apply() catches every model-call
+    // exception (including a 429 that exhausts all 3 FallbackChatModel tiers) and returns a
+    // normal-looking AssistantMessage with this exact literal text, instead of rethrowing -
+    // see .claude/plans/multi-provider-fallback/00-discovery.md. Without this check, such a
+    // failure would be reported to the client as answered:true.
+    private static final String MASKED_EXCEPTION_PREFIX = "Exception: ";
+
     private final AssistantReactAgentFactory assistantReactAgentFactory;
     private final ConversationService conversationService;
     private final ConversationSummaryService conversationSummaryService;
@@ -67,6 +74,13 @@ public class AssistantService {
 
             ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, documentId, retrievedDocuments);
             AssistantMessage assistantMessage = assistantReactAgentFactory.callWithErrorHandling(reactAgent, new ArrayList<>(fullMessages));
+
+            if (isMaskedException(assistantMessage.getText())) {
+                log.warn("Assistant received a masked model-call exception for groupId={}: {}", groupId, assistantMessage.getText());
+                return new AssistantResponse(false,
+                        "An unexpected error occurred. Please try again.",
+                        Collections.emptyList(), "", resolvedConversationId);
+            }
 
             conversationService.appendMessage(resolvedConversationId, MessageRole.USER, message, null);
             if (!retrievedDocuments.isEmpty()) {
@@ -127,6 +141,13 @@ public class AssistantService {
             ReactAgent reactAgent = assistantReactAgentFactory.createAgent(groupId, userId, documentId, retrievedDocuments);
             AssistantMessage assistantMessage = reactAgent.call(fullMessages);
 
+            if (isMaskedException(assistantMessage.getText())) {
+                log.warn("Repair loop received a masked model-call exception for groupId={}: {}", groupId, assistantMessage.getText());
+                return new AssistantResponse(false,
+                        "Could not process your request after attempting to correct the reasoning. Please try a simpler question.",
+                        Collections.emptyList(), "", conversationId);
+            }
+
             log.info("Repair loop succeeded on retry: groupId={}", groupId);
 
             conversationService.appendMessage(conversationId, MessageRole.USER, originalMessage, null);
@@ -149,6 +170,10 @@ public class AssistantService {
                     "Could not process your request after attempting to correct the reasoning. Please try a simpler question.",
                     Collections.emptyList(), "", conversationId);
         }
+    }
+
+    private boolean isMaskedException(String text) {
+        return text != null && text.startsWith(MASKED_EXCEPTION_PREFIX);
     }
 
     private String buildRepairInstruction(MalformedToolCallException error) {
