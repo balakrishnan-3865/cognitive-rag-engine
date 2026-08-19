@@ -11,9 +11,19 @@
 
 ## 2. Core Execution Commands
 - **Compile & Validate:** `./mvnw clean compile`
-- **Run Tests:** `./mvnw test`
+- **Run Tests:** Use the verification gates in `scripts/` (see Section 2.1) — do NOT run `./mvnw test` (or `./gradlew test`) directly during implementation.
 - **Run Local App:** `./mvnw spring-boot:run`
 - **Build Artifact:** `./mvnw clean package`
+
+## 2.1 Mandatory Verification Gates
+
+Two docker-compose files back the test environment (`deploy/docker-compose.yml` for postgres/minio/elasticsearch/docling, `deploy/docker-compose-test.yml` for the isolated postgres-test/elasticsearch-test used by integration tests). During feature implementation, verify work exclusively through these scripts — never by invoking Maven/Gradle test goals directly:
+
+- `bash scripts/run-unit-tests.sh` — fast unit/integration suite. Run this after every change before considering it done.
+- `bash scripts/run-smoke-tests.sh` — application context load / critical-path checks. Run before wrapping up a phase.
+- `bash scripts/run-e2e-tests.sh` — end-to-end tests (classes named `*E2ETest`). Run before completing a feature that touches multiple layers.
+
+All three source `scripts/ensure-env.sh` automatically, which idempotently brings up the required containers (reusing them if already healthy — it never tears them down) and waits for health checks. On failure, scripts print only a truncated, parsed failure summary (failed test class + trimmed stack trace, or the log tail on a compile error) instead of the full build log; the full log path is always printed alongside the summary for deeper digging.
 
 ## 3. Project Structure
 
