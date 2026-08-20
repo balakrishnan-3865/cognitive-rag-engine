@@ -24,15 +24,17 @@ class LlamaDocumentParserTest {
     void parse_resolvesHeadingAndTextItems_inOrder() throws ParseException {
         String json = """
             {
-              "pages": [
-                {
-                  "page_number": 1,
-                  "items": [
-                    { "type": "heading", "level": 1, "value": "Coverage" },
-                    { "type": "text", "value": "Coverage details follow." }
-                  ]
-                }
-              ]
+              "items": {
+                "pages": [
+                  {
+                    "page_number": 1,
+                    "items": [
+                      { "type": "heading", "level": 1, "value": "Coverage" },
+                      { "type": "text", "value": "Coverage details follow." }
+                    ]
+                  }
+                ]
+              }
             }
             """;
 
@@ -49,17 +51,19 @@ class LlamaDocumentParserTest {
     void parse_flattensNestedListItems_inOrder_withoutEmittingTheListWrapperItself() throws ParseException {
         String json = """
             {
-              "pages": [
-                {
-                  "page_number": 1,
-                  "items": [
-                    { "type": "list", "ordered": false, "items": [
-                      { "type": "text", "value": "Gold: low copay" },
-                      { "type": "text", "value": "Silver: moderate copay" }
-                    ]}
-                  ]
-                }
-              ]
+              "items": {
+                "pages": [
+                  {
+                    "page_number": 1,
+                    "items": [
+                      { "type": "list", "ordered": false, "items": [
+                        { "type": "text", "value": "Gold: low copay" },
+                        { "type": "text", "value": "Silver: moderate copay" }
+                      ]}
+                    ]
+                  }
+                ]
+              }
             }
             """;
 
@@ -75,17 +79,19 @@ class LlamaDocumentParserTest {
     void parse_buildsTableRowsFromRowsArray() throws ParseException {
         String json = """
             {
-              "pages": [
-                {
-                  "page_number": 3,
-                  "items": [
-                    { "type": "table", "rows": [
-                      ["Plan", "Copay"],
-                      ["Gold", "$20"]
-                    ]}
-                  ]
-                }
-              ]
+              "items": {
+                "pages": [
+                  {
+                    "page_number": 3,
+                    "items": [
+                      { "type": "table", "rows": [
+                        ["Plan", "Copay"],
+                        ["Gold", "$20"]
+                      ]}
+                    ]
+                  }
+                ]
+              }
             }
             """;
 
@@ -104,10 +110,12 @@ class LlamaDocumentParserTest {
     void parse_tracksPageNumberFromEachPagesPageNumberField() throws ParseException {
         String json = """
             {
-              "pages": [
-                { "page_number": 1, "items": [ { "type": "text", "value": "Page one item." } ] },
-                { "page_number": 2, "items": [ { "type": "text", "value": "Page two item." } ] }
-              ]
+              "items": {
+                "pages": [
+                  { "page_number": 1, "items": [ { "type": "text", "value": "Page one item." } ] },
+                  { "page_number": 2, "items": [ { "type": "text", "value": "Page two item." } ] }
+                ]
+              }
             }
             """;
 
@@ -123,14 +131,16 @@ class LlamaDocumentParserTest {
         // sample, but is documented as structurally identical to "text" — hand-written fixture.
         String json = """
             {
-              "pages": [
-                {
-                  "page_number": 1,
-                  "items": [
-                    { "type": "code", "value": "print('hello')" }
-                  ]
-                }
-              ]
+              "items": {
+                "pages": [
+                  {
+                    "page_number": 1,
+                    "items": [
+                      { "type": "code", "value": "print('hello')" }
+                    ]
+                  }
+                ]
+              }
             }
             """;
 
