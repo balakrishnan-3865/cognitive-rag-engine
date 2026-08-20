@@ -1,12 +1,10 @@
 package com.skyshift.cognitiveragengine.ingestion.service;
 
 import com.skyshift.cognitiveragengine.document.mapper.DocumentMapper;
-import com.skyshift.cognitiveragengine.ingestion.client.DoclingClient;
-import com.skyshift.cognitiveragengine.ingestion.docling.DoclingChunkAssembler;
-import com.skyshift.cognitiveragengine.ingestion.docling.DoclingDocumentParser;
 import com.skyshift.cognitiveragengine.ingestion.mapper.DocumentChunkMapper;
 import com.skyshift.cognitiveragengine.ingestion.mapper.DocumentIngestionRunMapper;
 import com.skyshift.cognitiveragengine.ingestion.model.enums.DocumentStatus;
+import com.skyshift.cognitiveragengine.ingestion.parser.ParseAndChunkStrategy;
 import com.skyshift.cognitiveragengine.storage.service.ObjectStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,16 +41,10 @@ class ParseAndChunkServiceConcurrencyTest {
     private ObjectStorageService objectStorageService;
 
     @Mock
-    private DoclingClient doclingClient;
+    private ParseAndChunkStrategy parseAndChunkStrategy;
 
     @Mock
     private DocumentIngestionRunMapper documentIngestionRunMapper;
-
-    @Mock
-    private DoclingDocumentParser doclingDocumentParser;
-
-    @Mock
-    private DoclingChunkAssembler doclingChunkAssembler;
 
     @Mock
     private DocumentChunkMapper documentChunkMapper;
@@ -65,9 +57,8 @@ class ParseAndChunkServiceConcurrencyTest {
     @BeforeEach
     void setUp() {
         parseAndChunkService = new ParseAndChunkService(
-            documentMapper, objectStorageService, doclingClient, documentIngestionRunMapper,
-            doclingDocumentParser, doclingChunkAssembler, documentChunkMapper, documentChunkBatchService,
-            0, 3);
+            documentMapper, objectStorageService, parseAndChunkStrategy, documentIngestionRunMapper,
+            documentChunkMapper, documentChunkBatchService);
     }
 
     @Test
@@ -80,7 +71,7 @@ class ParseAndChunkServiceConcurrencyTest {
         assertDoesNotThrow(() -> parseAndChunkService.parseAndChunkDocument(DOCUMENT_ID, GROUP_ID));
 
         verify(documentMapper, never()).selectById(anyLong());
-        verify(doclingClient, never()).submitAsync(any(), any());
+        verify(parseAndChunkStrategy, never()).execute(any(), any());
         verify(documentChunkBatchService, never()).insertShadowChunks(any());
         verify(documentChunkBatchService, never()).cutover(any(), any(), any());
     }
