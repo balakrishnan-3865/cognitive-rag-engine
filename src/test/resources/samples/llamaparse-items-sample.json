@@ -1,0 +1,250 @@
+{
+  "pages": [
+    {
+      "page_number": 1,
+      "items": [
+        {
+          "type": "heading",
+          "md": "# Coverage Summary",
+          "bbox": [
+            {
+              "x": 30.69,
+              "y": 33.03,
+              "w": 169.34,
+              "h": 18.97,
+              "confidence": 0.84,
+              "start_index": 0,
+              "end_index": 17,
+              "label": "paragraph_title"
+            }
+          ],
+          "level": 1,
+          "value": "Coverage Summary"
+        },
+        {
+          "type": "heading",
+          "md": "## Overview",
+          "bbox": [
+            {
+              "x": 30.8,
+              "y": 68.88,
+              "w": 57.95,
+              "h": 12.07,
+              "confidence": 0.9,
+              "start_index": 0,
+              "end_index": 10,
+              "label": "paragraph_title"
+            }
+          ],
+          "level": 2,
+          "value": "Overview"
+        },
+        {
+          "type": "text",
+          "md": "This plan provides coverage for eligible members under the Gold and Silver tiers. Benefits apply after the deductible is met.",
+          "bbox": [
+            {
+              "x": 30.51,
+              "y": 94.1,
+              "w": 534.03,
+              "h": 29.95,
+              "confidence": 0.96,
+              "start_index": 0,
+              "end_index": 124,
+              "label": "text"
+            }
+          ],
+          "value": "This plan provides coverage for eligible members under the Gold and Silver tiers. Benefits apply after the deductible is met."
+        },
+        {
+          "type": "heading",
+          "md": "## Plan Options",
+          "bbox": [
+            {
+              "x": 31.03,
+              "y": 145.38,
+              "w": 80.38,
+              "h": 14.51,
+              "confidence": 0.9,
+              "start_index": 0,
+              "end_index": 14,
+              "label": "paragraph_title"
+            }
+          ],
+          "level": 2,
+          "value": "Plan Options"
+        },
+        {
+          "type": "list",
+          "md": "* Gold: low copay, higher premium\n\n* Silver: moderate copay and premium\n\n* Bronze: high copay, lowest premium",
+          "bbox": [
+            {
+              "x": 28.74,
+              "y": 171.17,
+              "w": 188.74,
+              "h": 51.63,
+              "confidence": 0.86,
+              "start_index": 0,
+              "end_index": 108,
+              "label": "list"
+            }
+          ],
+          "items": [
+            {
+              "type": "text",
+              "md": "Gold: low copay, higher premium",
+              "bbox": [
+                {
+                  "x": 30.22,
+                  "y": 171.17,
+                  "w": 168.24,
+                  "h": 11.4,
+                  "confidence": 0.87,
+                  "start_index": 0,
+                  "end_index": 30,
+                  "label": "text"
+                }
+              ],
+              "value": "Gold: low copay, higher premium"
+            },
+            {
+              "type": "text",
+              "md": "Silver: moderate copay and premium",
+              "bbox": [
+                {
+                  "x": 28.74,
+                  "y": 191.05,
+                  "w": 188.74,
+                  "h": 11.47,
+                  "confidence": 0.86,
+                  "start_index": 0,
+                  "end_index": 33,
+                  "label": "text"
+                }
+              ],
+              "value": "Silver: moderate copay and premium"
+            },
+            {
+              "type": "text",
+              "md": "Bronze: high copay, lowest premium",
+              "bbox": [
+                {
+                  "x": 29.31,
+                  "y": 210.91,
+                  "w": 186.08,
+                  "h": 11.88,
+                  "confidence": 0.86,
+                  "start_index": 0,
+                  "end_index": 33,
+                  "label": "text"
+                }
+              ],
+              "value": "Bronze: high copay, lowest premium"
+            }
+          ],
+          "ordered": false
+        },
+        {
+          "type": "heading",
+          "md": "## Copay Table",
+          "bbox": [
+            {
+              "x": 30.81,
+              "y": 242.16,
+              "w": 77.48,
+              "h": 13.94,
+              "confidence": 0.91,
+              "start_index": 0,
+              "end_index": 13,
+              "label": "paragraph_title"
+            }
+          ],
+          "level": 2,
+          "value": "Copay Table"
+        },
+        {
+          "type": "table",
+          "md": "| Plan   | Copay |\n| ------ | ----- |\n| Gold   | $20   |\n| Silver | $35   |\n| Bronze | $50   |",
+          "bbox": [
+            {
+              "x": 27.2,
+              "y": 262.67,
+              "w": 256.8,
+              "h": 91.99,
+              "confidence": 0.99,
+              "start_index": 0,
+              "end_index": 93,
+              "label": "table"
+            }
+          ],
+          "rows": [
+            [
+              "Plan",
+              "Copay"
+            ],
+            [
+              "Gold",
+              "$20"
+            ],
+            [
+              "Silver",
+              "$35"
+            ],
+            [
+              "Bronze",
+              "$50"
+            ]
+          ],
+          "html": "<table>\n<tr><th>Plan</th><th>Copay</th></tr>\n<tr><td>Gold</td><td>$20</td></tr>\n<tr><td>Silver</td><td>$35</td></tr>\n<tr><td>Bronze</td><td>$50</td></tr>\n</table>",
+          "csv": "\"Plan\",\"Copay\"\n\"Gold\",\"$20\"\n\"Silver\",\"$35\"\n\"Bronze\",\"$50\""
+        }
+      ],
+      "page_width": 595.28,
+      "page_height": 841.89,
+      "success": true
+    },
+    {
+      "page_number": 2,
+      "items": [
+        {
+          "type": "heading",
+          "md": "# Exclusions",
+          "bbox": [
+            {
+              "x": 31.25,
+              "y": 34.25,
+              "w": 84.08,
+              "h": 15.72,
+              "confidence": 0.91,
+              "start_index": 0,
+              "end_index": 11,
+              "label": "paragraph_title"
+            }
+          ],
+          "level": 1,
+          "value": "Exclusions"
+        },
+        {
+          "type": "text",
+          "md": "The following services are excluded from coverage under all plan tiers: cosmetic procedures, experimental treatments not approved by the FDA, and services rendered by out-of-network providers without prior authorization.",
+          "bbox": [
+            {
+              "x": 30.33,
+              "y": 64.73,
+              "w": 534.73,
+              "h": 50.18,
+              "confidence": 0.97,
+              "start_index": 0,
+              "end_index": 219,
+              "label": "text"
+            }
+          ],
+          "value": "The following services are excluded from coverage under all plan tiers: cosmetic procedures, experimental treatments not approved by the FDA, and services rendered by out-of-network providers without prior authorization."
+        }
+      ],
+      "page_width": 595.28,
+      "page_height": 841.89,
+      "success": true
+    }
+  ]
+}
