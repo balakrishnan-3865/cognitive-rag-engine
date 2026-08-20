@@ -26,7 +26,10 @@ public class LlamaDocumentParser {
     public List<LlamaItem> parse(InputStream resultStream) throws ParseException {
         try {
             JsonNode root = objectMapper.readTree(resultStream);
-            JsonNode pages = root.path("pages");
+            // The full result envelope is {"job": {...}, "items": {"pages": [...]}} — "items" is
+            // itself a wrapper object, not the page array (surfaced live in Phase 5; the Phase 3
+            // fixture was pre-unwrapped to just the "items" sub-object, which masked this).
+            JsonNode pages = root.path("items").path("pages");
 
             List<LlamaItem> items = new ArrayList<>();
             if (pages.isArray()) {
