@@ -117,6 +117,15 @@ docling:
   poll-interval-ms: ${DOCLING_POLL_INTERVAL_MS:4000}
   poll-max-attempts: ${DOCLING_POLL_MAX_ATTEMPTS:150}
 
+# LlamaParse Hosted API Configuration
+llamaparse:
+  base-url: ${LLAMAPARSE_BASE_URL:https://api.cloud.llamaindex.ai}
+  api-key: ${LLAMA_CLOUD_API_KEY:}
+  tier: ${LLAMAPARSE_TIER:cost_effective}
+  version: ${LLAMAPARSE_VERSION:latest}
+  poll-interval-ms: ${LLAMAPARSE_POLL_INTERVAL_MS:4000}
+  poll-max-attempts: ${LLAMAPARSE_POLL_MAX_ATTEMPTS:150}
+
 # QA Configuration - LLM generation and final result limiting
 qa:
   top-k: ${QA_TOP_K_DEFAULT}
