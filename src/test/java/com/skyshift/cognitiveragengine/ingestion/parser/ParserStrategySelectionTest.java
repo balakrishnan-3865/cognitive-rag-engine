@@ -1,9 +1,14 @@
 package com.skyshift.cognitiveragengine.ingestion.parser;
 
 import com.skyshift.cognitiveragengine.ingestion.client.DoclingClient;
+import com.skyshift.cognitiveragengine.ingestion.client.LlamaParseClient;
+import com.skyshift.cognitiveragengine.ingestion.config.LlamaParseProperties;
 import com.skyshift.cognitiveragengine.ingestion.docling.DoclingChunkAssembler;
 import com.skyshift.cognitiveragengine.ingestion.docling.DoclingDocumentParser;
 import com.skyshift.cognitiveragengine.ingestion.docling.DoclingParseAndChunkStrategy;
+import com.skyshift.cognitiveragengine.ingestion.llamaparse.LlamaChunkAssembler;
+import com.skyshift.cognitiveragengine.ingestion.llamaparse.LlamaDocumentParser;
+import com.skyshift.cognitiveragengine.ingestion.llamaparse.LlamaParseParseAndChunkStrategy;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
@@ -44,12 +49,30 @@ class ParserStrategySelectionTest {
                 .doesNotHaveBean(DoclingParseAndChunkStrategy.class));
     }
 
+    @Test
+    void strategyLlama_llamaStrategyBeanActive() {
+        contextRunner.withPropertyValues("parser.strategy=llama").run(context ->
+            org.assertj.core.api.Assertions.assertThat(context)
+                .hasSingleBean(LlamaParseParseAndChunkStrategy.class));
+    }
+
+    @Test
+    void strategyUnset_llamaStrategyBeanAbsent() {
+        contextRunner.run(context ->
+            org.assertj.core.api.Assertions.assertThat(context)
+                .doesNotHaveBean(LlamaParseParseAndChunkStrategy.class));
+    }
+
     @Configuration
     @ComponentScan(
-        basePackageClasses = DoclingParseAndChunkStrategy.class,
+        basePackageClasses = {DoclingParseAndChunkStrategy.class, LlamaParseParseAndChunkStrategy.class},
         useDefaultFilters = false,
-        includeFilters = @ComponentScan.Filter(
-            type = FilterType.ASSIGNABLE_TYPE, classes = DoclingParseAndChunkStrategy.class),
+        includeFilters = {
+            @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE, classes = DoclingParseAndChunkStrategy.class),
+            @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE, classes = LlamaParseParseAndChunkStrategy.class)
+        },
         excludeFilters = {
             @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
             @ComponentScan.Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class)
@@ -69,6 +92,27 @@ class ParserStrategySelectionTest {
         @Bean
         DoclingChunkAssembler doclingChunkAssembler() {
             return Mockito.mock(DoclingChunkAssembler.class);
+        }
+
+        @Bean
+        LlamaParseClient llamaParseClient() {
+            return Mockito.mock(LlamaParseClient.class);
+        }
+
+        @Bean
+        LlamaDocumentParser llamaDocumentParser() {
+            return Mockito.mock(LlamaDocumentParser.class);
+        }
+
+        @Bean
+        LlamaChunkAssembler llamaChunkAssembler() {
+            return Mockito.mock(LlamaChunkAssembler.class);
+        }
+
+        @Bean
+        LlamaParseProperties llamaParseProperties() {
+            return new LlamaParseProperties(
+                "https://api.cloud.llamaindex.ai", "test-api-key", "cost_effective", "latest", 0, 1);
         }
     }
 }
