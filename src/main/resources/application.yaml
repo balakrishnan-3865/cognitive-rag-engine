@@ -106,6 +106,10 @@ storage:
     secret-key: ${MINIO_SECRET_KEY}
     bucket: ${MINIO_BUCKET_NAME}
 
+# Parser Strategy Selection
+parser:
+  strategy: ${PARSER_STRATEGY:docling}
+
 # Docling Sidecar Configuration
 docling:
   base-url: ${DOCLING_BASE_URL:http://localhost:5001}
