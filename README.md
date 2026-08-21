@@ -12,33 +12,26 @@ This README is written as a **learning showcase**: not "here's what the code doe
 flowchart TD
     Client(["Client — JWT bearer"])
 
-    Client --> QA["/api/v1/qa/ask
-    stateless, single-turn"]
-    Client --> Assistant["/api/v1/assistant/ask
-    conversational ReAct agent"]
-    Client --> Claims["/api/v1/claims/query
-    graph-routed, single-shot"]
+    Client --> QA["/api/v1/qa/ask<br/>stateless, single-turn"]
+    Client --> Assistant["/api/v1/assistant/ask<br/>conversational ReAct agent"]
+    Client --> Claims["/api/v1/claims/query<br/>graph-routed, single-shot"]
 
     Claims --> Intent{{"IntentCheckNode"}}
     Intent -->|GREETING| Direct["canned reply — no LLM call"]
     Intent -->|OUT_OF_SCOPE| Refuse["canned refusal — no LLM call"]
     Intent -->|AGENT_QUERY| Agent
 
-    Assistant --> Agent["ReactAgent
-    (KnowledgeBaseTool + ClaimStatusTool)"]
+    Assistant --> Agent["ReactAgent<br/>(KnowledgeBaseTool + ClaimStatusTool)"]
     QA --> Retrieval
 
     Agent --> Retrieval["HybridChunkRetrievalService"]
 
-    Retrieval --> Dense["Dense: PgVector / HNSW
-    cosine distance"]
-    Retrieval --> Sparse["Sparse: Elasticsearch
-    BM25 match"]
+    Retrieval --> Dense["Dense: PgVector / HNSW<br/>cosine distance"]
+    Retrieval --> Sparse["Sparse: Elasticsearch<br/>BM25 match"]
 
     Dense --> RRF["Reciprocal Rank Fusion (k=60)"]
     Sparse --> RRF
-    RRF --> Rerank["Cross-Encoder Reranker
-    (ONNX, local, off by default)"]
+    RRF --> Rerank["Cross-Encoder Reranker<br/>(ONNX, local, off by default)"]
     Rerank --> LLM["Chat model (fallback chain)"]
 ```
 
@@ -53,26 +46,16 @@ Two things worth noticing before the details:
 
 ```mermaid
 flowchart LR
-    Upload["Upload"] --> MinIO["MinIO
-    (object storage)"]
-    MinIO --> Pending["DocumentEntity
-    PENDING"]
-    Pending -->|async event| Parse["Parse + Chunk
-    (Docling or LlamaParse strategy)"]
-    Parse --> TX1["TX1: persist chunks
-    (Postgres, relational)"]
-    TX1 --> Lock["acquire ingestion lock
-    PROCESSING → INJECTING"]
-    Lock --> TX2["TX2 (REQUIRES_NEW): embed + write
-    (pgvector)"]
-    TX2 --> TX3["TX3: index
-    (Elasticsearch, best-effort)"]
-    TX3 -->|failure| Compensate["compensating rollback:
-    delete the pgvector rows just written"]
-    TX3 -->|success| Ready["markDocumentAsReady
-    READY"]
-    Compensate -.-> Recover["IngestionRecoveryScheduler
-    reconciles stuck INJECTING docs"]
+    Upload["Upload"] --> MinIO["MinIO<br/>(object storage)"]
+    MinIO --> Pending["DocumentEntity<br/>PENDING"]
+    Pending -->|async event| Parse["Parse + Chunk<br/>(Docling or LlamaParse strategy)"]
+    Parse --> TX1["TX1: persist chunks<br/>(Postgres, relational)"]
+    TX1 --> Lock["acquire ingestion lock<br/>PROCESSING → INJECTING"]
+    Lock --> TX2["TX2 (REQUIRES_NEW): embed + write<br/>(pgvector)"]
+    TX2 --> TX3["TX3: index<br/>(Elasticsearch, best-effort)"]
+    TX3 -->|failure| Compensate["compensating rollback:<br/>delete the pgvector rows just written"]
+    TX3 -->|success| Ready["markDocumentAsReady<br/>READY"]
+    Compensate -.-> Recover["IngestionRecoveryScheduler<br/>reconciles stuck INJECTING docs"]
 ```
 
 Three storage systems — Postgres (chunk rows), pgvector (embeddings), Elasticsearch (search index) — participate in one logical write, with no two-phase commit across them. The design **compensates instead of coordinating**: each stage is independently retryable, a failed downstream write triggers an explicit rollback of the upstream write it depended on, and a background scheduler self-heals anything left in an inconsistent `INJECTING` state by a crash mid-pipeline. This is the pragmatic alternative to a saga framework at this system's scale — deliberately not over-engineered with a coordinator no one needs yet (see [Simplicity First](#simplicity-first-not-just-a-slogan)).
