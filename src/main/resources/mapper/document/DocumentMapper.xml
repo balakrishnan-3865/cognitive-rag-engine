@@ -232,4 +232,33 @@
         AND deleted = false
         ORDER BY updated_at DESC
     </select>
+
+    <select id="selectVersionsByRootAndGroupId" resultType="com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity">
+        SELECT
+            id,
+            group_id,
+            uploaded_user_id,
+            file_name,
+            file_extension,
+            context_type,
+            file_size,
+            file_hash,
+            storage_bucket,
+            storage_object_key,
+            status,
+            deleted,
+            failure_reason,
+            root_document_id,
+            version_number,
+            is_current_version,
+            uploaded_at,
+            processed_at,
+            created_at,
+            updated_at
+        FROM documents
+        WHERE (id = #{rootDocumentId} OR root_document_id = #{rootDocumentId})
+        AND group_id = #{groupId}
+        AND deleted = false
+        ORDER BY is_current_version DESC, version_number DESC
+    </select>
 </mapper>

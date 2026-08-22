@@ -3,6 +3,7 @@ package com.skyshift.cognitiveragengine.document.controller;
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentCreatedResponse;
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentSummaryResponse;
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentUploadRequest;
+import com.skyshift.cognitiveragengine.document.model.dto.DocumentVersionResponse;
 import com.skyshift.cognitiveragengine.document.service.DocumentService;
 import com.skyshift.cognitiveragengine.user.model.AuthenticatedUser;
 import lombok.extern.slf4j.Slf4j;
@@ -79,6 +80,22 @@ public class DocumentController {
             newDocumentId, documentId, principal.getGroupId());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(new DocumentCreatedResponse(newDocumentId));
+    }
+
+    @GetMapping("/{documentId}/versions")
+    public List<DocumentVersionResponse> listVersions(
+        @PathVariable Long documentId,
+        @AuthenticationPrincipal AuthenticatedUser principal
+    ) {
+        log.info("List document versions request received: documentId={}, groupId={}",
+            documentId, principal.getGroupId());
+
+        List<DocumentVersionResponse> versions = documentService.listVersions(documentId, principal.getGroupId());
+
+        log.info("List document versions request completed: documentId={}, groupId={}, count={}",
+            documentId, principal.getGroupId(), versions.size());
+
+        return versions;
     }
 
     @PostMapping("/{documentId}/versions/{targetVersionId}/revert")

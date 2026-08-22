@@ -8,6 +8,7 @@ import com.skyshift.cognitiveragengine.document.exception.DocumentUploadExceptio
 import com.skyshift.cognitiveragengine.document.exception.DocumentVersionConflictException;
 import com.skyshift.cognitiveragengine.document.mapper.DocumentMapper;
 import com.skyshift.cognitiveragengine.document.model.dto.DocumentSummaryResponse;
+import com.skyshift.cognitiveragengine.document.model.dto.DocumentVersionResponse;
 import com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity;
 import com.skyshift.cognitiveragengine.storage.service.ObjectStorageService;
 import lombok.extern.slf4j.Slf4j;
@@ -156,6 +157,26 @@ public class DocumentService {
             throw new BusinessException("Document not found or not ready: documentId=" + documentId);
         }
         return List.of(documentId);
+    }
+
+    public List<DocumentVersionResponse> listVersions(Long documentId, Long groupId) {
+        DocumentEntity anchor = documentMapper.selectByIdAndGroupId(documentId, groupId);
+        if (anchor == null) {
+            throw new BusinessException("Document not found: documentId=" + documentId);
+        }
+
+        Long rootDocumentId = anchor.getRootDocumentId() != null ? anchor.getRootDocumentId() : anchor.getId();
+
+        return documentMapper.selectVersionsByRootAndGroupId(rootDocumentId, groupId).stream()
+            .map(entity -> new DocumentVersionResponse(
+                entity.getId(),
+                entity.getVersionNumber(),
+                entity.getIsCurrentVersion(),
+                entity.getFileName(),
+                entity.getStatus(),
+                entity.getUpdatedAt()
+            ))
+            .toList();
     }
 
     public List<DocumentSummaryResponse> listDocuments(Long groupId, Long userId) {
