@@ -3,17 +3,21 @@ package com.skyshift.cognitiveragengine.document.service;
 import com.skyshift.cognitiveragengine.common.exception.BusinessException;
 import com.skyshift.cognitiveragengine.document.exception.DocumentVersionConflictException;
 import com.skyshift.cognitiveragengine.document.mapper.DocumentMapper;
+import com.skyshift.cognitiveragengine.document.model.dto.DocumentVersionResponse;
 import com.skyshift.cognitiveragengine.document.model.entity.DocumentEntity;
 import com.skyshift.cognitiveragengine.storage.service.ObjectStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,6 +45,9 @@ class DocumentServiceVersioningIntegrationTest {
 
     @Autowired
     private DocumentMapper documentMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private ObjectStorageService objectStorageService;
@@ -155,6 +162,52 @@ class DocumentServiceVersioningIntegrationTest {
         DocumentVersionConflictException exception = assertThrows(DocumentVersionConflictException.class, () ->
             documentService.revertToVersion(v1, v1, GROUP_ID));
         assertTrue(exception.getMessage().contains("already the current version"));
+    }
+
+    @Test
+    void listVersions_activeVersionSortsFirstAfterRevert() {
+        Long v1 = documentService.uploadDocument(pdfFile("v1.pdf"), GROUP_ID, USER_ID);
+        documentMapper.updateStatus(v1, "READY");
+        Long v2 = documentService.uploadNewVersion(v1, GROUP_ID, pdfFile("v2.pdf"), USER_ID);
+        documentMapper.updateStatus(v2, "READY");
+        // Simulate the Phase 2 READY-promotion hook that normally runs after ingestion succeeds.
+        documentMapper.flipCurrentVersion(v1, v2);
+        documentService.revertToVersion(v2, v1, GROUP_ID);
+
+        List<DocumentVersionResponse> versions = documentService.listVersions(v1, GROUP_ID);
+
+        assertEquals(2, versions.size());
+        assertEquals(v1, versions.get(0).id());
+        assertEquals(v2, versions.get(1).id());
+    }
+
+    @Test
+    void listVersions_excludesSoftDeletedVersions() {
+        Long v1 = documentService.uploadDocument(pdfFile("v1.pdf"), GROUP_ID, USER_ID);
+        documentMapper.updateStatus(v1, "READY");
+        Long v2 = documentService.uploadNewVersion(v1, GROUP_ID, pdfFile("v2.pdf"), USER_ID);
+        jdbcTemplate.update("update documents set deleted = true where id = ?", v2);
+
+        List<DocumentVersionResponse> versions = documentService.listVersions(v1, GROUP_ID);
+
+        assertEquals(1, versions.size());
+        assertEquals(v1, versions.get(0).id());
+    }
+
+    @Test
+    void listVersions_documentNotFound_throwsBusinessException() {
+        assertThrows(BusinessException.class, () ->
+            documentService.listVersions(-1L, GROUP_ID));
+    }
+
+    @Test
+    void listVersions_singleVersionDocument_returnsItself() {
+        Long documentId = documentService.uploadDocument(pdfFile("original.pdf"), GROUP_ID, USER_ID);
+
+        List<DocumentVersionResponse> versions = documentService.listVersions(documentId, GROUP_ID);
+
+        assertEquals(1, versions.size());
+        assertEquals(documentId, versions.get(0).id());
     }
 
     private MultipartFile pdfFile(String filename) {

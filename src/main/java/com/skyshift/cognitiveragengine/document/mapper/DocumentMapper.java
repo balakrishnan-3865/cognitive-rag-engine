@@ -44,4 +44,8 @@ public interface DocumentMapper {
     List<DocumentEntity> selectCurrentVersionsByGroupIdAndUserId(
         @Param("groupId") Long groupId,
         @Param("userId") Long userId);
+
+    List<DocumentEntity> selectVersionsByRootAndGroupId(
+        @Param("rootDocumentId") Long rootDocumentId,
+        @Param("groupId") Long groupId);
 }
